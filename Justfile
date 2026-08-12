@@ -61,17 +61,24 @@ fmt-check:
 typecheck: deps
   pnpm run typecheck
 
-# Run Go unit tests.
+# Run fast Go unit tests; these do not require PostgreSQL.
 test:
   go test ./...
+
+# Create a fresh migrated PostgreSQL database per backend integration test.
+test-integration: infra-up
+  go test -count=1 -tags=integration ./internal/postgres
 
 # Run static checks and unit tests.
 check: fmt-check typecheck test
   go vet ./...
 
-# Run Playwright sanity and multiplayer tests.
+# Run unit checks plus database integration tests.
+check-all: check test-integration
+
+# Run Playwright against a fresh database migrated by the real server.
 e2e: certs infra-up deps
-  pnpm exec playwright test
+  ./scripts/e2e.sh
 
 # Open Playwright's interactive test UI.
 e2e-ui: certs infra-up deps

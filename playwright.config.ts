@@ -23,7 +23,9 @@ export default defineConfig({
     command: 'go run ./cmd/server',
     url: 'https://localhost:8443/healthz',
     ignoreHTTPSErrors: true,
-    reuseExistingServer: true,
+    // A reused server could point at the developer database instead of the
+    // per-run database created by scripts/e2e.sh.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 })

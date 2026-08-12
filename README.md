@@ -74,8 +74,9 @@ Run `just` to discover all commands. Common commands are:
 ```sh
 just dev          # local Go process + containerized infrastructure
 just docker-up    # same Docker-only script described above
-just check        # formatting, JS/TS typechecking, Go tests, and go vet
-just e2e          # Playwright sanity and cross-view realtime tests
+just check        # formatting, typechecking, fast Go unit tests, and go vet
+just check-all    # check plus fresh-database backend integration tests
+just e2e          # Playwright with a fresh database migrated by the real server
 just protocol     # print the negotiated HTTP protocol
 just infra-reset  # discard and recreate local data
 ```
@@ -97,6 +98,20 @@ Migration SQL lives in `internal/postgres/migrations/` and is embedded in the se
 `001_init.sql` is idempotent to adopt databases created before the ledger was introduced; after that one-time adoption it is recorded and skipped. Add future changes as `002_description.sql`, `003_description.sql`, and so on—never edit an applied file. During local development, an intentional rewrite of migration history requires `just infra-reset` or `docker compose down -v`.
 
 On the same machine, local Go uses `localhost:5432` while the container uses `postgres:5432`, but both addresses reach the same Compose PostgreSQL service and named `patient-dashboard_postgres-data` volume. Switching between `just dev` and `just docker-up` therefore preserves data and migration history. Do not normally run both application processes simultaneously because they publish the same HTTPS port, although the migration lock makes their database startup safe. A Mac and a separate Linux VM naturally have separate Docker volumes and databases.
+
+## Test database strategy
+
+Fast `go test ./...` tests stay database-free: domain and security tests are pure, HTTP handler tests use the repository interface with a fake, and migration discovery/checksum tests inspect the embedded files. Database behavior is tested separately and explicitly:
+
+```sh
+just test-integration
+```
+
+Integration tests use the real `lib/pq` store and follow the “Zero to Production” isolation pattern. For every test, the harness connects to the Compose PostgreSQL administrative database, creates a uniquely named empty database, invokes the production `Store.Migrate`, exercises repository behavior, and force-drops the database during cleanup. This ensures tests cannot accidentally rely on a developer’s schema or seed state. Override the administrative connection with `TEST_DATABASE_URL`; its database component is replaced for each fixture.
+
+`just e2e` similarly creates one fresh database for the Playwright run. Playwright starts the real Go server against it, so server startup—not test setup—applies the embedded production migrations before `/healthz` becomes ready. The database is dropped after the run, and UI tests do not pollute the long-lived development database. Stop any server already using port 8443 before running E2E; Playwright deliberately refuses to reuse it because it may point at the wrong database.
+
+`just check` remains fast and does not require live services beyond installing locked tools. `just check-all` adds backend database integration tests; `just e2e` remains a separate browser suite.
 
 ## Routes
 

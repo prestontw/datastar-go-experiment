@@ -144,8 +144,9 @@ Local and container execution both call `http.Server.ListenAndServeTLS` with HTT
 - `flake.lock` pins Nixpkgs; the shell supplies Go 1.26.5, pnpm, Node, mkcert, Docker clients, and Playwright browsers. PostgreSQL and Redis run only through Docker Compose.
 - `pnpm-lock.yaml` pins test-only Node packages.
 - Docker images pin Go, PostgreSQL, and Redis patch versions.
-- Go tests cover pure commands, security tokens, event dropping, templates, and HTTP command boundaries.
-- Playwright checks HTTP/2, Web Component upgrade, patient creation, CSRF rejection, query-param routing, and one change appearing on two different pages.
+- Fast Go tests cover pure commands, security tokens, event dropping, templates, and HTTP command boundaries through a fake repository.
+- Tagged PostgreSQL integration tests create a unique empty database per test, invoke the production embedded migrator, exercise the real store, and drop the fixture. They are explicit (`just test-integration`) rather than hidden inside fast unit tests.
+- Each Playwright run gets a unique empty database. The real server startup applies production migrations before its health check, then tests verify HTTP/2, Web Component upgrade, patient creation, CSRF rejection, query-param routing, and one change appearing on two different pages. The fixture is dropped afterward.
 
 `just` is the discoverable command interface for Nix development. `scripts/docker-up.sh` forms a Nix-independent Docker entry point and calls the shared certificate helper before Compose. Nix is an optional development tool environment, not a container runtime prerequisite; it supplies Docker client tools but expects a host or remote Docker daemon. Docker Compose is the PostgreSQL/Redis runtime environment in both workflows and can also run the application.
 
@@ -181,3 +182,4 @@ Create a superseding ADR if any of the following occurs: real authentication/PHI
 - **2026-08-12:** Chose to retain literal `.gohtml` CSS colocation for the PoC, documented adjacent external CSS and vendored-Datastar hardening tradeoffs, and established the intended optimistic-concurrency/conflict-UI policy for future task editing.
 - **2026-08-12:** Made full-stack Docker execution independent of Nix while requiring host `mkcert`. Local Go and Docker runs now reuse the same owner-only certificate files and host trust, favoring parity over an additional container-only development CA.
 - **2026-08-12:** Replaced rerunning one idempotent schema file with an embedded, checksummed migration ledger protected by a PostgreSQL advisory lock and transaction. Local and Docker server startup now share one explicit migration lifecycle.
+- **2026-08-12:** Added Zero-to-Production-style database test isolation: tagged backend tests migrate a new database per test, and Playwright runs against a fresh database migrated by real server startup.
