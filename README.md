@@ -82,6 +82,22 @@ just infra-reset  # discard and recreate local data
 
 The application applies its PostgreSQL schema and synthetic seed data at startup.
 
+## Database startup and migrations
+
+The Go server owns schema migration in every execution mode. After connecting to PostgreSQL—and before starting the notification listener or accepting HTTPS requests—it calls `Store.Migrate`. Docker waits for PostgreSQL’s health check first; the Nix/local workflow’s `just infra-up` also uses Compose `--wait`.
+
+Migration SQL lives in `internal/postgres/migrations/` and is embedded in the server binary. The migrator:
+
+1. Acquires a PostgreSQL transaction-scoped advisory lock, so two local/container server processes cannot migrate concurrently.
+2. Creates a `schema_migrations` ledger if needed.
+3. Reads numbered `.sql` files in lexical order.
+4. Verifies the SHA-256 checksum of every previously applied file and refuses edited history or a database newer than the binary.
+5. Applies all pending migrations and ledger entries in one transaction. A failure rolls the entire migration attempt back and prevents the HTTPS server from starting.
+
+`001_init.sql` is idempotent to adopt databases created before the ledger was introduced; after that one-time adoption it is recorded and skipped. Add future changes as `002_description.sql`, `003_description.sql`, and so on—never edit an applied file. During local development, an intentional rewrite of migration history requires `just infra-reset` or `docker compose down -v`.
+
+On the same machine, local Go uses `localhost:5432` while the container uses `postgres:5432`, but both addresses reach the same Compose PostgreSQL service and named `patient-dashboard_postgres-data` volume. Switching between `just dev` and `just docker-up` therefore preserves data and migration history. Do not normally run both application processes simultaneously because they publish the same HTTPS port, although the migration lock makes their database startup safe. A Mac and a separate Linux VM naturally have separate Docker volumes and databases.
+
 ## Routes
 
 | Method | Route | Role |

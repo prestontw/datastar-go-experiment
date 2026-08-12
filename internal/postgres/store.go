@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	_ "embed"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,9 +12,6 @@ import (
 
 	"github.com/preston/go-datastar-patient-dashboard/internal/domain"
 )
-
-//go:embed migrations/001_init.sql
-var initialMigration string
 
 type Store struct {
 	db *sql.DB
@@ -40,25 +36,6 @@ func Open(ctx context.Context, databaseURL string) (*Store, error) {
 func (s *Store) Close() error { return s.db.Close() }
 
 func (s *Store) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
-
-func (s *Store) Migrate(ctx context.Context) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin migration: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1)", int64(724_846_231)); err != nil {
-		return fmt.Errorf("lock migrations: %w", err)
-	}
-	if _, err := tx.ExecContext(ctx, initialMigration); err != nil {
-		return fmt.Errorf("run initial migration: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit migration: %w", err)
-	}
-	return nil
-}
 
 func (s *Store) Dashboard(ctx context.Context, query domain.DashboardQuery) (domain.DashboardSnapshot, error) {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})

@@ -86,6 +86,8 @@ Patients, tasks, and future authenticated session records belong in PostgreSQL. 
 
 Redis runs in the development Compose stack as an explicit integration seam but is not used by application code. Add it only when transient per-tab configuration must survive one process, presence must be shared across replicas, or measured notification/fan-out needs justify it. Avoiding speculative Redis state prevents split sources of truth.
 
+The server owns PostgreSQL migrations rather than delegating them to Nix or a Compose-only job. Numbered SQL files are embedded in the same application binary in both local and container execution. Startup acquires a transaction-scoped PostgreSQL advisory lock, verifies an embedded-file checksum ledger, and applies all pending DDL and ledger writes in one transaction before opening the realtime listener or HTTPS server. This makes switching execution modes against one Compose volume safe and serializes accidental concurrent startup. Applied migrations are immutable; a checksum mismatch or a database migration unknown to an older binary is a startup error rather than an implicit downgrade. This simple migrator is adequate while migrations remain transactional PostgreSQL SQL; long-running or non-transactional operational migrations would require a separate deployment procedure and ADR.
+
 ### 6. Follow Hyperlith/HIFI session and CSRF practices
 
 - Generate session IDs from 160 cryptographically random bits, URL-safe and unpadded.
@@ -178,3 +180,4 @@ Create a superseding ADR if any of the following occurs: real authentication/PHI
 - **2026-08-12:** Clarified morph-time focus retention and added stable editor IDs, preserved `<details open>`, and a cross-client focus/value/selection test. Expanded the CSP tradeoff and hardening paths.
 - **2026-08-12:** Chose to retain literal `.gohtml` CSS colocation for the PoC, documented adjacent external CSS and vendored-Datastar hardening tradeoffs, and established the intended optimistic-concurrency/conflict-UI policy for future task editing.
 - **2026-08-12:** Made full-stack Docker execution independent of Nix while requiring host `mkcert`. Local Go and Docker runs now reuse the same owner-only certificate files and host trust, favoring parity over an additional container-only development CA.
+- **2026-08-12:** Replaced rerunning one idempotent schema file with an embedded, checksummed migration ledger protected by a PostgreSQL advisory lock and transaction. Local and Docker server startup now share one explicit migration lifecycle.
