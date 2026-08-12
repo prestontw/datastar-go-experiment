@@ -103,7 +103,7 @@
       <header class="pane-header">
         <div class="pane-title-row"><h2>Patients</h2><span class="count">{{len .Patients}} in view</span></div>
         <form class="search" method="get" action="/patients">
-          <input type="search" name="q" value="{{.Query.Search}}" aria-label="Search patients" placeholder="Search patients…">
+          <input id="patient-search" type="search" name="q" value="{{.Query.Search}}" aria-label="Search patients" placeholder="Search patients…">
           <input type="hidden" name="status" value="{{.Query.Status}}">
           <button class="button secondary" type="submit">Search</button>
         </form>
@@ -125,15 +125,15 @@
       <p class="empty"><strong>No patients found</strong>Try a different search.</p>
       {{end}}
 
-      <details class="create-patient">
+      <details id="create-patient" class="create-patient" data-preserve-attr="open">
         <summary>Add a patient</summary>
-        <form class="form-grid" data-on:submit="@post('/commands?command=create-patient')">
-          <label>Full name<input data-bind:patient-name autocomplete="off" maxlength="120" required></label>
+        <form id="create-patient-form" class="form-grid" data-on:submit="@post('/commands?command=create-patient')">
+          <label>Full name<input id="patient-name" data-bind:patient-name autocomplete="off" maxlength="120" required></label>
           <div class="form-grid two">
-            <label>Date of birth<input type="date" data-bind:patient-dob required></label>
-            <label>Pronouns<input data-bind:patient-pronouns maxlength="60" placeholder="Optional"></label>
+            <label>Date of birth<input id="patient-dob" type="date" data-bind:patient-dob required></label>
+            <label>Pronouns<input id="patient-pronouns" data-bind:patient-pronouns maxlength="60" placeholder="Optional"></label>
           </div>
-          <label>Care team<input data-bind:patient-care-team maxlength="120" placeholder="Clinicians"></label>
+          <label>Care team<input id="patient-care-team" data-bind:patient-care-team maxlength="120" placeholder="Clinicians"></label>
           <button class="button" type="submit">Create patient</button>
         </form>
       </details>
@@ -153,10 +153,10 @@
         <a href="/patients?patient={{.ID}}&amp;status=done&amp;q={{$.Query.Search | urlquery}}" {{if eq $.Query.Status "done"}}aria-current="true"{{end}}>Completed</a>
         <a href="/patients?patient={{.ID}}&amp;status=all&amp;q={{$.Query.Search | urlquery}}" {{if eq $.Query.Status "all"}}aria-current="true"{{end}}>All</a>
       </nav>
-      <form class="task-form" data-on:submit="@post('/commands?command=create-task&amp;patient={{.ID}}')">
-        <label>Task<input data-bind:task-title maxlength="180" placeholder="Add a care task…" required></label>
-        <label>Due date<input type="date" data-bind:task-due required></label>
-        <label>Priority<select data-bind:task-priority><option value="routine">Routine</option><option value="important">Important</option><option value="urgent">Urgent</option></select></label>
+      <form id="create-task-form" class="task-form" data-on:submit="@post('/commands?command=create-task&amp;patient={{.ID}}')">
+        <label>Task<input id="task-title" data-bind:task-title maxlength="180" placeholder="Add a care task…" required></label>
+        <label>Due date<input id="task-due" type="date" data-bind:task-due required></label>
+        <label>Priority<select id="task-priority" data-bind:task-priority><option value="routine">Routine</option><option value="important">Important</option><option value="urgent">Urgent</option></select></label>
         <button class="button" type="submit">Add task</button>
       </form>
       {{if $.Tasks}}

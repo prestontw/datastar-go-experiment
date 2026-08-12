@@ -67,7 +67,9 @@ Statement-level PostgreSQL triggers call `pg_notify('practice_changed', ...)` af
 
 Each SSE connection has a one-slot dropping buffer and renders no more often than once per 100 ms. A dropped event loses no domain information because the retained event causes a query of the latest committed state. On PostgreSQL listener reconnect, all clients are invalidated once to cover potentially missed notifications.
 
-The server always sends the complete page `<main>`. It does not compute an HTML diff or maintain a server-side prior view. Datastar/Idiomorph performs the fine-grained browser DOM morph. SSE streams prefer Brotli and fall back to gzip, making repeated HTML highly compressible.
+The server always sends the complete page `<main>`. It does not compute an HTML diff or maintain a server-side prior view. Datastar performs the fine-grained browser DOM morph. Stable IDs on editable controls help the morph retain the existing DOM nodes; live input values, focus, and selection therefore survive unrelated renders. Server markup deliberately does not restate draft input values. Non-value UI attributes that the browser mutates, such as a `<details>` element’s `open`, use `data-preserve-attr`. This behavior is covered by a cross-client Playwright test. If a view intentionally removes or replaces an editor, preserving focus is not expected.
+
+SSE streams prefer Brotli and fall back to gzip, making repeated HTML highly compressible.
 
 **Consequences:**
 
@@ -93,7 +95,13 @@ Redis runs in the development Compose stack as an explicit integration seam but 
 - Reject unsafe requests unless Fetch Metadata says `same-origin` or a matching `Origin` is present. Do not enable CORS.
 - Use `html/template` contextual escaping and standard security headers.
 
-The CSP permits jsDelivr for the temporarily CDN-hosted Datastar module and includes its SRI hash. Datastar expression evaluation currently needs `'unsafe-eval'`; colocated inline page CSS needs `'unsafe-inline'`. These are known CSP concessions, not defaults to copy blindly. Vendoring Datastar and adopting nonced or external style assets can tighten CSP later.
+The CSP permits jsDelivr for the temporarily CDN-hosted Datastar module and includes its SRI hash. Datastar expression evaluation currently compiles declarative attribute expressions with the JavaScript `Function` constructor and therefore needs `'unsafe-eval'`; a nonce or hash cannot authorize runtime string compilation. Datastar does not currently provide a generally available CSP-safe evaluator. Removing this directive would require a distinct CSP-compatible Datastar runtime/precompiled expression scheme or replacing its declarative expression layer with explicit trusted JavaScript while retaining the SSE protocol.
+
+For the PoC, keep Datastar on the pinned CDN URL with subresource integrity because it makes the dependency and update experiment easy to inspect and follows the original no-vendoring constraint. Before a production-oriented deployment, prefer embedding an audited Datastar bundle in the Go binary. Vendoring would make the application independent of CDN availability, keep runtime bytes under the same deployment and review boundary, work offline, eliminate the broad `https://cdn.jsdelivr.net` script source, and allow CSP to narrow to `script-src 'self' 'unsafe-eval'`. It would also make it easier to update the Datastar browser runtime and Go SDK together. It would not remove `'unsafe-eval'`, because the vendored runtime would still compile attribute expressions. Costs include owning update/license-attribution checks, losing shared CDN caching, and slightly increasing repository and binary size.
+
+Colocated inline page `<style>` elements and the Web Component’s generated Shadow DOM `<style>` need `'unsafe-inline'` under `style-src`. We deliberately retain literal `.gohtml` colocation for this PoC: the page structure, selectors, responsive behavior, and scoped boundary can be read and changed as one unit; there is no asset naming/cache-invalidation convention; and the experiment can evaluate whether native `@scope` remains manageable before adding more machinery. This prioritizes development locality over the strongest CSP.
+
+Moving the same vanilla `@scope` rules into adjacent embedded `.css` files remains a straightforward hardening option, not the current plan. It would permit `style-src 'self'` without `'unsafe-inline'`, allow independent browser caching, improve stylesheet-specific tooling, and avoid reparsing unchanged CSS in each HTML document. Its costs are weaker literal colocation, an additional asset request and route, cache/version management, and the possibility that template structure and styles drift across files. Exact CSP hashes or per-response nonces could preserve same-file CSS, but require automated hash regeneration or nonce propagation, including into Shadow DOM styles. These are known CSP concessions, not defaults to copy blindly.
 
 Authentication, authorization, clinical audit logs, retention rules, secrets management, field encryption, backup/restore validation, and compliance controls are out of scope. Synthetic data is mandatory.
 
@@ -105,13 +113,30 @@ Each page’s content and `@scope` styles live in the same `.gohtml` file. This 
 
 `@scope` and Web Components target modern browsers, consistent with the Playwright/Datastar baseline. Revisit CSS Modules or another strategy if browser support or stylesheet scale requires it.
 
-### 8. Terminate trusted TLS directly in the Go process
+### 8. Treat drafts and committed records as separate concurrent states
+
+Datastar’s DOM morphing can retain an existing input node, its live value, focus, and selection, but it cannot decide whether a new committed value semantically conflicts with a person’s draft. Hyperlith similarly provides an architectural warning rather than a conflict-resolution primitive: pages can change underneath users, signals are for ephemeral state, and the UI must be designed accordingly.
+
+If task editing is added, use explicit optimistic concurrency rather than last-write-wins:
+
+1. Store a monotonically increasing `revision` plus `updated_at` and `updated_by` on each editable task.
+2. When editing begins, retain the draft, the baseline field values, and `baseRevision` as per-tab ephemeral signals. The database remains the source of the current committed value.
+3. Continue rendering the latest committed task outside or alongside the editor. A full-main update must not write the committed title into the draft input.
+4. If the database revision changes while the local draft is dirty, keep the draft intact and show an explicit conflict state: who changed it, when, the value the draft started from, the current committed value, and the local draft.
+5. Save with a compare-and-swap statement such as `UPDATE ... SET ..., revision = revision + 1 WHERE id = $1 AND revision = $expected`. Zero changed rows is a conflict, not success. Re-read the row and patch conflict signals; never silently overwrite.
+6. Offer explicit choices appropriate to the field: discard the draft and accept the current value, continue comparing/merging, or deliberately overwrite after authorization and a fresh version check. For long clinical notes, use a three-way merge or a purpose-built collaborative model rather than pretending last-write-wins is collaboration.
+
+Attribution and timestamps make the UI honest but do not prevent lost updates; the conditional database write is the correctness boundary. Presence indicators or advisory locks can reduce collisions but are hints, not substitutes for revision checking, because clients disconnect and locks become stale. Datastar supplies useful mechanisms—persistent signals, reactive conflict banners, `PatchSignals`, and authoritative full-page morphs—but no automatic CRDT, merge algorithm, or domain conflict policy.
+
+This design keeps Hyperlith’s grain: commands remain distinct, the database is authoritative, a commit triggers a fresh render, and drafts remain ephemeral. If server rendering itself must reason about current draft state, promote only the necessary per-tab editing metadata to the existing per-tab state seam (potentially Redis when replicated), not into shared task state.
+
+### 9. Terminate trusted TLS directly in the Go process
 
 Local and container execution both call `http.Server.ListenAndServeTLS` with HTTP/1.1 and HTTP/2 explicitly enabled. There is no development-only plaintext path or Docker reverse proxy. `mkcert` produces a trusted localhost certificate mounted into the container. SSE has no server write timeout; shutdown cancellation closes streams.
 
 **Consequences:** local behavior exercises the same transport semantics as the container, reducing SSE connection-limit and buffering surprises. A production deployment may terminate TLS at a proxy, but that proxy must preserve streaming, avoid response buffering, and negotiate HTTP/2 with clients.
 
-### 9. Pin tools and test at multiple levels
+### 10. Pin tools and test at multiple levels
 
 - `go.mod` declares Go 1.26 and toolchain 1.26.5.
 - `flake.lock` pins Nixpkgs; the shell supplies Go 1.26.5, pnpm, Node, mkcert, Docker clients, and Playwright browsers. PostgreSQL and Redis run only through Docker Compose.
@@ -150,3 +175,5 @@ Create a superseding ADR if any of the following occurs: real authentication/PHI
 
 - **2026-08-11:** Initial report. Added the second page, PostgreSQL notifications, Redis reservation, HMAC double-submit CSRF, direct HTTP/2 TLS, native scoped CSS, and the Web Component/typechecking example.
 - **2026-08-12:** Removed PostgreSQL from the Nix shell. `lib/pq` is pure Go and needs no PostgreSQL headers; PostgreSQL remains a Docker Compose runtime service.
+- **2026-08-12:** Clarified morph-time focus retention and added stable editor IDs, preserved `<details open>`, and a cross-client focus/value/selection test. Expanded the CSP tradeoff and hardening paths.
+- **2026-08-12:** Chose to retain literal `.gohtml` CSS colocation for the PoC, documented adjacent external CSS and vendored-Datastar hardening tradeoffs, and established the intended optimistic-concurrency/conflict-UI policy for future task editing.

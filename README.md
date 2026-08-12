@@ -109,7 +109,13 @@ The PoC follows Hyperlith/HIFI practices where applicable:
 - Responses include HSTS, a restrictive CSP, frame denial, no-referrer, MIME-sniffing prevention, and a restrictive permissions policy.
 - HTML is rendered by `html/template`, which contextually escapes patient content.
 
-Datastar expressions currently require CSP `unsafe-eval`; inline colocated page CSS requires `unsafe-inline`. The ADR records both exceptions. Security headers and direct TLS are useful foundations, but they do not make this a production clinical system.
+Datastar expressions currently require CSP `unsafe-eval`; inline colocated page CSS requires `unsafe-inline`. The ADR records both exceptions. We intentionally keep native scoped CSS literally in each `.gohtml` file during the PoC so markup and styles can be evaluated as one unit. Adjacent embedded CSS could later remove `unsafe-inline`, improve independent caching, and enable `style-src 'self'`, at the cost of weaker literal colocation and asset/cache management.
+
+Datastar is currently pinned on jsDelivr with SRI. Vendoring its audited browser bundle into the Go binary would remove CDN availability and supply-chain runtime dependencies and narrow the source policy to `'self'`; it would not remove `unsafe-eval`, which Datastar needs to compile declarative expressions. See the ADR for the complete hardening tradeoff. Security headers and direct TLS are useful foundations, but they do not make this a production clinical system.
+
+## Concurrent editing policy
+
+Task editing is not implemented yet. When it is, live draft signals and morph-time focus preservation will prevent another client’s render from mechanically erasing typed text, but that alone does not prevent a lost update. Editable rows should gain an explicit revision, update time, and editor identity. Save commands will conditionally update the expected revision; a mismatch will retain the local draft while showing the baseline and latest committed value, attribution, and explicit discard/merge/overwrite choices. Datastar provides signals, reactive UI, and server patches for this flow; conflict detection and merge policy remain application/database responsibilities.
 
 ## Dependencies
 

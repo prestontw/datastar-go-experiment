@@ -53,8 +53,23 @@ test('pushes one database change into clients on two different page views', asyn
   await expect(duePage.getByRole('heading', { name: 'Due tasks' })).toBeVisible()
 
   const taskTitle = `Cross-view follow-up ${Date.now()}`
+  const taskInput = patientPage.getByLabel('Task', { exact: true })
+  await taskInput.fill(taskTitle)
+  await taskInput.evaluate((element) => (element as HTMLInputElement).setSelectionRange(3, 8))
+
+  // A full-main morph caused by another client must preserve the actual input
+  // node, its live value, focus, and selection.
+  const completionButton = duePage.locator('button.toggle').first()
+  await expect(completionButton).toBeVisible()
+  await completionButton.click()
+  await expect(taskInput).toBeFocused()
+  await expect(taskInput).toHaveValue(taskTitle)
+  await expect.poll(() => taskInput.evaluate((element) => {
+    const input = element as HTMLInputElement
+    return [input.selectionStart, input.selectionEnd]
+  })).toEqual([3, 8])
+
   const dueDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1_000).toISOString().slice(0, 10)
-  await patientPage.getByLabel('Task', { exact: true }).fill(taskTitle)
   await patientPage.getByLabel('Due date').fill(dueDate)
   await patientPage.getByLabel('Priority').selectOption('important')
   await patientPage.getByRole('button', { name: 'Add task' }).click()
