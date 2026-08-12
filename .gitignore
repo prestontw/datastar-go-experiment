@@ -1,18 +1,48 @@
-# Local TLS material
-.certs/
+# Ignore everything by default. Explicitly opt repository files in below.
+*
 
-# JavaScript tooling
-node_modules/
-playwright-report/
-test-results/
+# Repository configuration and documentation
+!/.gitignore
+!/.dockerignore
+!/.env.example
+!/Dockerfile
+!/Justfile
+!/README.md
+!/compose.yaml
+!/flake.nix
+!/flake.lock
+!/go.mod
+!/go.sum
+!/package.json
+!/playwright.config.ts
+!/pnpm-lock.yaml
+!/tsconfig.json
 
-# Go output
-/patient-dashboard
-coverage.out
+# Go commands. Directory rules permit traversal; only Go files are included.
+!/cmd/
+!/cmd/**/
+!/cmd/**/*.go
 
-# Nix/direnv
-.direnv/
-result
+# Go application packages. New nested packages require no ignore-file change,
+# but non-Go files remain ignored unless explicitly included below.
+!/internal/
+!/internal/**/
+!/internal/**/*.go
 
-# Local configuration
-.env
+# Embedded application files are restricted to their expected locations.
+!/internal/postgres/migrations/*.sql
+!/internal/web/assets/*.js
+!/internal/web/templates/*.gohtml
+
+# Architecture documentation
+!/docs/
+!/docs/adr/
+!/docs/adr/*.md
+
+# Browser tests
+!/e2e/
+!/e2e/*.ts
+
+# Development scripts
+!/scripts/
+!/scripts/*.sh
