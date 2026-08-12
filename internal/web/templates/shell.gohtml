@@ -1,0 +1,71 @@
+{{define "shell"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A realtime patient dashboard demonstration using Go and Datastar">
+  <title>{{.Title}} · Northstar Practice</title>
+  <script type="module" defer src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.2/bundles/datastar.js" integrity="sha384-SnyFlWTdFL3c8+9/1WsPuMFBq6AQOGC1LmS9upY4YkM3En3wZr5q2UvydHaMgOVG" crossorigin="anonymous"></script>
+  <script type="module" defer src="/assets/patient-avatar.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17322d;
+      --muted: #60736e;
+      --line: #d9e2df;
+      --paper: #fbfcfa;
+      --surface: #ffffff;
+      --wash: #edf4f1;
+      --brand: #176b5a;
+      --brand-dark: #0d4e41;
+      --coral: #c95f45;
+      --gold: #aa791c;
+      --shadow: 0 16px 50px rgb(23 50 45 / 8%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { min-width: 320px; background: var(--paper); }
+    body { margin: 0; color: var(--ink); background: var(--paper); }
+    button, input, select { font: inherit; }
+    a { color: inherit; }
+    .site-header {
+      min-height: 4.5rem;
+      padding: 0 4vw;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+      color: white;
+      background: var(--ink);
+      border-bottom: 1px solid rgb(255 255 255 / 12%);
+    }
+    .brand { display: flex; align-items: center; gap: .75rem; text-decoration: none; font-weight: 760; letter-spacing: -.02em; }
+    .brand-mark { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: .65rem; color: var(--ink); background: #b9eadc; }
+    .site-nav { display: flex; align-items: center; gap: .4rem; }
+    .site-nav a { padding: .65rem .85rem; border-radius: .65rem; color: #d6e3df; text-decoration: none; font-size: .93rem; }
+    .site-nav a[aria-current="page"] { color: white; background: rgb(255 255 255 / 12%); }
+    .environment { color: #a9beb8; font-size: .75rem; text-transform: uppercase; letter-spacing: .12em; }
+    .noscript { margin: 2rem; padding: 1rem; border: 1px solid #e8c286; background: #fff8e8; }
+    @media (max-width: 680px) {
+      .site-header { padding: .75rem 1rem; flex-wrap: wrap; gap: .5rem; }
+      .environment { display: none; }
+    }
+  </style>
+  {{if eq .Page "patients"}}{{template "dashboard-head" .}}{{end}}
+  {{if eq .Page "due"}}{{template "due-head" .}}{{end}}
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/patients"><span class="brand-mark" aria-hidden="true">✦</span> Northstar Practice</a>
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="/patients" {{if eq .Page "patients"}}aria-current="page"{{end}}>Patients</a>
+      <a href="/tasks/due?window=14" {{if eq .Page "due"}}aria-current="page"{{end}}>Due tasks</a>
+    </nav>
+    <span class="environment">Synthetic demo data</span>
+  </header>
+  <div id="session-signals" hidden data-signals='{{.Signals}}' data-signals:csrf="document.cookie.match(/(?:^|; )__Host-csrf=([^;]+)/)?.[1] || ''" data-signals:tab-id="self.crypto.randomUUID()"></div>
+  <div data-init="@post(window.location.pathname + window.location.search, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})" data-on:online__window="@post(window.location.pathname + window.location.search, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"></div>
+  <noscript><p class="noscript">This demonstration needs JavaScript to establish its Datastar update stream.</p></noscript>
+  <main id="morph" aria-live="polite"></main>
+</body>
+</html>{{end}}

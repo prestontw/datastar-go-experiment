@@ -1,0 +1,10 @@
+.git
+.jj
+.direnv
+node_modules
+playwright-report
+test-results
+.certs
+result
+README.md
+docs

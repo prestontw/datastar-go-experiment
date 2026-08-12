@@ -1,0 +1,183 @@
+{{define "dashboard-head"}}
+<style>
+  @scope (.dashboard) {
+    :scope { display: block; min-height: calc(100vh - 4.5rem); padding: 2rem 4vw 3rem; background: linear-gradient(135deg, #f8faf7 0%, #eef5f2 100%); }
+    .page-heading { display: flex; align-items: end; justify-content: space-between; gap: 2rem; margin: 0 auto 1.5rem; max-width: 92rem; }
+    .eyebrow { margin: 0 0 .3rem; color: var(--brand); font-size: .76rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: .25rem; font-family: Georgia, serif; font-size: clamp(2rem, 4vw, 3.15rem); font-weight: 500; letter-spacing: -.045em; }
+    .lede { margin: 0; color: var(--muted); }
+    .practice-stats { display: flex; gap: .65rem; }
+    .stat { min-width: 7.4rem; padding: .85rem 1rem; border: 1px solid var(--line); border-radius: .85rem; background: rgb(255 255 255 / 70%); }
+    .stat strong { display: block; font-size: 1.25rem; }
+    .stat span { color: var(--muted); font-size: .78rem; }
+    .flash { max-width: 92rem; margin: 0 auto 1rem; padding: .8rem 1rem; border-radius: .7rem; background: #dff5eb; color: var(--brand-dark); }
+    .flash.error { background: #fff0ec; color: #8b3b28; }
+    .workspace { display: grid; grid-template-columns: minmax(18rem, 24rem) minmax(30rem, 1fr); min-height: 39rem; max-width: 92rem; margin: auto; overflow: hidden; border: 1px solid var(--line); border-radius: 1.1rem; background: var(--surface); box-shadow: var(--shadow); }
+    .patients-pane { display: flex; min-width: 0; flex-direction: column; background: #f7faf8; border-right: 1px solid var(--line); }
+    .pane-header { padding: 1.2rem; border-bottom: 1px solid var(--line); }
+    .pane-title-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    h2 { margin-bottom: .25rem; font-size: 1.08rem; }
+    .count { color: var(--muted); font-size: .8rem; }
+    .search { display: flex; gap: .5rem; margin-top: .85rem; }
+    input, select { width: 100%; min-height: 2.55rem; padding: .6rem .7rem; color: var(--ink); border: 1px solid #c8d5d1; border-radius: .6rem; background: white; }
+    input:focus, select:focus, summary:focus, button:focus-visible, a:focus-visible { outline: 3px solid rgb(23 107 90 / 22%); outline-offset: 2px; }
+    .button { min-height: 2.55rem; padding: .58rem .85rem; border: 1px solid transparent; border-radius: .6rem; color: white; background: var(--brand); cursor: pointer; font-weight: 700; text-decoration: none; white-space: nowrap; }
+    .button:hover { background: var(--brand-dark); }
+    .button.secondary { color: var(--ink); border-color: var(--line); background: white; }
+    .patient-list { flex: 1; margin: 0; padding: .5rem; list-style: none; overflow: auto; }
+    .patient-link { display: grid; grid-template-columns: 2.6rem 1fr auto; align-items: center; gap: .72rem; padding: .78rem; border-radius: .75rem; text-decoration: none; }
+    .patient-link:hover { background: var(--wash); }
+    .patient-link[aria-current="true"] { background: #dcefe9; box-shadow: inset 3px 0 var(--brand); }
+    .patient-name { display: block; overflow: hidden; font-size: .92rem; font-weight: 720; text-overflow: ellipsis; white-space: nowrap; }
+    .patient-meta { display: block; margin-top: .15rem; overflow: hidden; color: var(--muted); font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+    .task-count { display: grid; min-width: 1.7rem; height: 1.7rem; place-items: center; border-radius: 2rem; color: var(--brand-dark); background: white; font-size: .75rem; font-weight: 800; }
+    details.create-patient { padding: .9rem 1.2rem 1.2rem; border-top: 1px solid var(--line); }
+    summary { color: var(--brand); cursor: pointer; font-size: .88rem; font-weight: 750; }
+    .form-grid { display: grid; gap: .72rem; margin-top: .85rem; }
+    .form-grid.two { grid-template-columns: 1fr 1fr; }
+    label { display: grid; gap: .3rem; color: var(--muted); font-size: .76rem; font-weight: 700; }
+    .tasks-pane { min-width: 0; }
+    .patient-header { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.4rem 1.6rem; border-bottom: 1px solid var(--line); }
+    .patient-identity { display: flex; align-items: center; gap: .9rem; }
+    .patient-identity h2 { margin-bottom: .15rem; font-family: Georgia, serif; font-size: 1.65rem; font-weight: 500; }
+    .patient-identity p { margin: 0; color: var(--muted); font-size: .82rem; }
+    .filters { display: flex; gap: .25rem; padding: .8rem 1.6rem 0; }
+    .filters a { padding: .43rem .7rem; border-radius: 2rem; color: var(--muted); font-size: .8rem; text-decoration: none; }
+    .filters a[aria-current="true"] { color: var(--brand-dark); background: var(--wash); font-weight: 750; }
+    .task-form { display: grid; grid-template-columns: minmax(12rem, 1fr) minmax(9rem, .45fr) minmax(8rem, .35fr) auto; gap: .6rem; padding: 1rem 1.6rem; }
+    .task-list { margin: 0; padding: 0 1.6rem 1.5rem; list-style: none; }
+    .task { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: .85rem; min-height: 4.25rem; border-top: 1px solid #e7eeeb; }
+    .task:first-child { border-top: 0; }
+    .toggle { display: grid; width: 1.8rem; height: 1.8rem; place-items: center; padding: 0; border: 1px solid #aec1bb; border-radius: 50%; color: transparent; background: white; cursor: pointer; }
+    .toggle.done { color: white; border-color: var(--brand); background: var(--brand); }
+    .task-title { overflow: hidden; margin: 0; font-size: .9rem; font-weight: 690; text-overflow: ellipsis; white-space: nowrap; }
+    .task-title.done { color: var(--muted); text-decoration: line-through; }
+    .task-subtitle { margin: .16rem 0 0; color: var(--muted); font-size: .73rem; }
+    .priority { padding: .28rem .5rem; border-radius: 2rem; color: var(--brand-dark); background: #e6f3ef; font-size: .7rem; font-weight: 800; text-transform: capitalize; }
+    .priority.urgent { color: #8f3525; background: #ffe8e1; }
+    .priority.important { color: #79550e; background: #fff2cf; }
+    .due { color: var(--muted); font-size: .76rem; white-space: nowrap; }
+    .due.overdue { color: var(--coral); font-weight: 800; }
+    .empty { padding: 4rem 2rem; color: var(--muted); text-align: center; }
+    .empty strong { display: block; margin-bottom: .4rem; color: var(--ink); }
+    .realtime-note { max-width: 92rem; margin: 1rem auto 0; color: var(--muted); font-size: .76rem; text-align: right; }
+    @media (max-width: 900px) {
+      :scope { padding: 1.4rem 1rem 2rem; }
+      .page-heading { align-items: start; flex-direction: column; }
+      .workspace { grid-template-columns: 1fr; }
+      .patients-pane { max-height: 28rem; border-right: 0; border-bottom: 1px solid var(--line); }
+      .task-form { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 560px) {
+      .practice-stats { width: 100%; }
+      .stat { min-width: 0; flex: 1; }
+      .patient-header { align-items: start; flex-direction: column; }
+      .form-grid.two, .task-form { grid-template-columns: 1fr; }
+      .task { grid-template-columns: auto minmax(0, 1fr) auto; }
+      .priority { display: none; }
+    }
+  }
+</style>
+{{end}}
+
+{{define "dashboard-view"}}
+<main id="morph" class="dashboard" aria-live="polite">
+  <header class="page-heading">
+    <div>
+      <p class="eyebrow">Clinical workspace</p>
+      <h1>Patient dashboard</h1>
+      <p class="lede">Shared care tasks, updated as the practice changes.</p>
+    </div>
+    <div class="practice-stats" aria-label="Practice task summary">
+      <div class="stat"><strong>{{.OpenTaskCount}}</strong><span>Open tasks</span></div>
+      <div class="stat"><strong>{{.DueTaskCount}}</strong><span>Due in 7 days</span></div>
+    </div>
+  </header>
+
+  <p class="flash" data-show="$_flash" data-text="$_flash"></p>
+  <p class="flash error" data-show="$_error" data-text="$_error"></p>
+
+  <section class="workspace" aria-label="Patient and task workspace">
+    <aside class="patients-pane">
+      <header class="pane-header">
+        <div class="pane-title-row"><h2>Patients</h2><span class="count">{{len .Patients}} in view</span></div>
+        <form class="search" method="get" action="/patients">
+          <input type="search" name="q" value="{{.Query.Search}}" aria-label="Search patients" placeholder="Search patients…">
+          <input type="hidden" name="status" value="{{.Query.Status}}">
+          <button class="button secondary" type="submit">Search</button>
+        </form>
+      </header>
+
+      {{if .Patients}}
+      <ul class="patient-list">
+        {{range .Patients}}
+        <li>
+          <a class="patient-link" href="/patients?patient={{.ID}}&amp;status={{$.Query.Status}}&amp;q={{$.Query.Search | urlquery}}" {{if selected $.SelectedPatient .ID}}aria-current="true"{{end}}>
+            <patient-avatar initials="{{initials .Name}}" tone="{{tone .ID}}" aria-hidden="true"></patient-avatar>
+            <span><span class="patient-name">{{.Name}}</span><span class="patient-meta">{{.Pronouns}}{{if and .Pronouns .CareTeam}} · {{end}}{{.CareTeam}}</span></span>
+            <span class="task-count" title="Open tasks">{{.OpenTasks}}</span>
+          </a>
+        </li>
+        {{end}}
+      </ul>
+      {{else}}
+      <p class="empty"><strong>No patients found</strong>Try a different search.</p>
+      {{end}}
+
+      <details class="create-patient">
+        <summary>Add a patient</summary>
+        <form class="form-grid" data-on:submit="@post('/commands?command=create-patient')">
+          <label>Full name<input data-bind:patient-name autocomplete="off" maxlength="120" required></label>
+          <div class="form-grid two">
+            <label>Date of birth<input type="date" data-bind:patient-dob required></label>
+            <label>Pronouns<input data-bind:patient-pronouns maxlength="60" placeholder="Optional"></label>
+          </div>
+          <label>Care team<input data-bind:patient-care-team maxlength="120" placeholder="Clinicians"></label>
+          <button class="button" type="submit">Create patient</button>
+        </form>
+      </details>
+    </aside>
+
+    <section class="tasks-pane">
+      {{with .SelectedPatient}}
+      <header class="patient-header">
+        <div class="patient-identity">
+          <patient-avatar initials="{{initials .Name}}" tone="{{tone .ID}}" size="large" aria-hidden="true"></patient-avatar>
+          <div><h2>{{.Name}}</h2><p>Born {{formatDate .DateOfBirth}} · {{if .CareTeam}}{{.CareTeam}}{{else}}Care team not assigned{{end}}</p></div>
+        </div>
+        <span class="count">{{.OpenTasks}} open · {{.TotalTasks}} total</span>
+      </header>
+      <nav class="filters" aria-label="Task status">
+        <a href="/patients?patient={{.ID}}&amp;status=open&amp;q={{$.Query.Search | urlquery}}" {{if eq $.Query.Status "open"}}aria-current="true"{{end}}>Open</a>
+        <a href="/patients?patient={{.ID}}&amp;status=done&amp;q={{$.Query.Search | urlquery}}" {{if eq $.Query.Status "done"}}aria-current="true"{{end}}>Completed</a>
+        <a href="/patients?patient={{.ID}}&amp;status=all&amp;q={{$.Query.Search | urlquery}}" {{if eq $.Query.Status "all"}}aria-current="true"{{end}}>All</a>
+      </nav>
+      <form class="task-form" data-on:submit="@post('/commands?command=create-task&amp;patient={{.ID}}')">
+        <label>Task<input data-bind:task-title maxlength="180" placeholder="Add a care task…" required></label>
+        <label>Due date<input type="date" data-bind:task-due required></label>
+        <label>Priority<select data-bind:task-priority><option value="routine">Routine</option><option value="important">Important</option><option value="urgent">Urgent</option></select></label>
+        <button class="button" type="submit">Add task</button>
+      </form>
+      {{if $.Tasks}}
+      <ul class="task-list">
+        {{range $.Tasks}}
+        <li class="task">
+          <button class="toggle {{.Status}}" type="button" aria-label="Toggle {{.Title}}" data-on:click="@post('/commands?command=toggle-task&amp;task={{.ID}}')">✓</button>
+          <div><p class="task-title {{.Status}}">{{.Title}}</p><p class="task-subtitle">Created {{formatDate .CreatedAt}}</p></div>
+          <span class="priority {{.Priority}}">{{.Priority}}</span>
+          <time class="due {{dueClass .DueDate $.Today}}" datetime="{{isoDate .DueDate}}">{{dueLabel .DueDate $.Today}}</time>
+        </li>
+        {{end}}
+      </ul>
+      {{else}}
+      <p class="empty"><strong>No {{$.Query.Status}} tasks</strong>New tasks and changes from other clients appear here automatically.</p>
+      {{end}}
+      {{else}}
+      <p class="empty"><strong>Select or create a patient</strong>Their care tasks will appear in this pane.</p>
+      {{end}}
+    </section>
+  </section>
+  <p class="realtime-note">Live via one throttled HTTPS/2 Datastar stream · tab <span data-text="$tabId.substring(0, 8)"></span></p>
+</main>
+{{end}}

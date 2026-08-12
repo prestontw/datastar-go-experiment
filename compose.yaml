@@ -1,0 +1,62 @@
+name: patient-dashboard
+
+services:
+  postgres:
+    image: postgres:17.10-alpine
+    environment:
+      POSTGRES_DB: patient_dashboard
+      POSTGRES_USER: dashboard
+      POSTGRES_PASSWORD: dashboard
+      TZ: UTC
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dashboard -d patient_dashboard"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4.6-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  app:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: "${LOCAL_UID:-65532}:${LOCAL_GID:-65532}"
+    environment:
+      ADDR: ":8443"
+      DATABASE_URL: "postgres://dashboard:dashboard@postgres:5432/patient_dashboard?sslmode=disable"
+      APP_SECRET: "docker-development-only-secret-change-before-deploying"
+      TLS_CERT_FILE: "/certs/localhost.pem"
+      TLS_KEY_FILE: "/certs/localhost-key.pem"
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./.certs/localhost.pem:/certs/localhost.pem:ro
+      - ./.certs/localhost-key.pem:/certs/localhost-key.pem:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:

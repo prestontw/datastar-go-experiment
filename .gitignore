@@ -1,0 +1,18 @@
+# Local TLS material
+.certs/
+
+# JavaScript tooling
+node_modules/
+playwright-report/
+test-results/
+
+# Go output
+/patient-dashboard
+coverage.out
+
+# Nix/direnv
+.direnv/
+result
+
+# Local configuration
+.env
