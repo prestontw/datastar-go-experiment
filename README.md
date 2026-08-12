@@ -78,7 +78,7 @@ just check        # formatting, typechecking, fast Go unit tests, and go vet
 just check-all    # check plus fresh-database backend integration tests
 just e2e          # Playwright with a fresh database migrated by the real server
 just protocol     # print the negotiated HTTP protocol
-just infra-reset  # discard and recreate local data
+just infra-reset patient_dashboard  # reset exactly this logical database
 ```
 
 The application applies its PostgreSQL schema and synthetic seed data at startup.
@@ -95,9 +95,38 @@ Migration SQL lives in `internal/postgres/migrations/` and is embedded in the se
 4. Verifies the SHA-256 checksum of every previously applied file and refuses edited history or a database newer than the binary.
 5. Applies all pending migrations and ledger entries in one transaction. A failure rolls the entire migration attempt back and prevents the HTTPS server from starting.
 
-`001_init.sql` is idempotent to adopt databases created before the ledger was introduced; after that one-time adoption it is recorded and skipped. Add future changes as `002_description.sql`, `003_description.sql`, and so on—never edit an applied file. During local development, an intentional rewrite of migration history requires `just infra-reset` or `docker compose down -v`.
+`001_init.sql` is idempotent to adopt databases created before the ledger was introduced; after that one-time adoption it is recorded and skipped. Add future changes as `002_description.sql`, `003_description.sql`, and so on—never edit an applied file. During local development, an intentional rewrite of one database’s migration history requires naming it explicitly, for example `just infra-reset patient_dashboard_agent_a`. This force-drops and recreates only that logical database; it never stops Compose or removes shared volumes.
 
-On the same machine, local Go uses `localhost:5432` while the container uses `postgres:5432`, but both addresses reach the same Compose PostgreSQL service and named `patient-dashboard_postgres-data` volume. Switching between `just dev` and `just docker-up` therefore preserves data and migration history. Do not normally run both application processes simultaneously because they publish the same HTTPS port, although the migration lock makes their database startup safe. A Mac and a separate Linux VM naturally have separate Docker volumes and databases.
+On the same machine, local Go uses `localhost:5432` while the container uses `postgres:5432`, but both addresses reach the same Compose PostgreSQL service and named `patient-dashboard_postgres-data` volume. Switching between `just dev` and `just docker-up` therefore preserves data and migration history. Do not normally run both application processes on the same configured HTTPS port, although the migration lock makes their database startup safe. A Mac and a separate Linux VM naturally have separate Docker volumes and databases.
+
+## Concurrent agents and worktrees
+
+Agents run the Go server directly and share one Compose PostgreSQL process. Each worktree gets a separate logical database and HTTPS port, avoiding one PostgreSQL/Redis container set per agent. Copy `.env.example` to the ignored `.env` in each worktree and choose unique values:
+
+```dotenv
+# Worktree A
+DATABASE_NAME=patient_dashboard_agent_a
+APP_PORT=18443
+
+# Worktree B uses, for example:
+# DATABASE_NAME=patient_dashboard_agent_b
+# APP_PORT=18444
+```
+
+`just` loads `.env`. `just dev` idempotently creates the configured logical database, exports its derived `DATABASE_URL` and `ADDR`, runs the production migrator, and starts Go. The PostgreSQL host port remains intentionally shared at 5432; Redis is also shared but unused. Per-database migration locks do not block migrations in other agent databases, and PostgreSQL `LISTEN`/`NOTIFY` traffic is scoped to the connected database.
+
+Only the two agent-owned values need parameterization for this model: `DATABASE_NAME` and `APP_PORT`. A Compose project per worktree would additionally require unique Compose names, PostgreSQL/Redis host ports, networks, volumes, and images while running another PostgreSQL and Redis process per agent. It provides stronger process-level isolation, but the shared-process/logical-database model is simpler and substantially lighter for the VM.
+
+Destructive helpers are deliberately scoped:
+
+```sh
+just infra-reset patient_dashboard_agent_a  # only this database
+just shared-infra-down all-agents            # intentionally affects everyone
+```
+
+`docker compose down` and `down -v` bypass these safeguards and must not be used by agents against the shared VM infrastructure. Resetting an agent database force-closes that database’s connections, so stop/restart that agent’s Go process; other logical databases and agents remain available.
+
+This isolates server ports, schema, rows, migration history, and notifications. It does not fully isolate browser cookies because cookies for `localhost` are not port-scoped. Automated agents use separate Playwright browser contexts/processes, so that is acceptable for now. If humans need simultaneous tabs for several worktrees, introduce per-agent `*.localhost` hostnames and a wildcard mkcert certificate.
 
 ## Test database strategy
 
@@ -109,7 +138,7 @@ just test-integration
 
 Integration tests use the real `lib/pq` store and follow the “Zero to Production” isolation pattern. For every test, the harness connects to the Compose PostgreSQL administrative database, creates a uniquely named empty database, invokes the production `Store.Migrate`, exercises repository behavior, and force-drops the database during cleanup. This ensures tests cannot accidentally rely on a developer’s schema or seed state. Override the administrative connection with `TEST_DATABASE_URL`; its database component is replaced for each fixture.
 
-`just e2e` similarly creates one fresh database for the Playwright run. Playwright starts the real Go server against it, so server startup—not test setup—applies the embedded production migrations before `/healthz` becomes ready. The database is dropped after the run, and UI tests do not pollute the long-lived development database. Stop any server already using port 8443 before running E2E; Playwright deliberately refuses to reuse it because it may point at the wrong database.
+`just e2e` similarly creates one fresh database for the Playwright run. Playwright starts the real Go server against it, so server startup—not test setup—applies the embedded production migrations before `/healthz` becomes ready. The database is dropped after the run, and UI tests do not pollute the long-lived development database. It uses the worktree’s `APP_PORT`; stop that worktree server before E2E. Concurrent worktrees can run E2E on different ports, and Playwright deliberately refuses to reuse an existing server because it may point at the wrong database.
 
 `just check` remains fast and does not require live services beyond installing locked tools. `just check-all` adds backend database integration tests; `just e2e` remains a separate browser suite.
 
@@ -186,8 +215,10 @@ Node packages are test/development-only: Playwright, TypeScript, and Node type d
 
 | Variable | Development default | Description |
 | --- | --- | --- |
-| `ADDR` | `:8443` | HTTPS listen address |
-| `DATABASE_URL` | Local Compose PostgreSQL URL | PostgreSQL DSN |
+| `DATABASE_NAME` | `patient_dashboard` | Logical database selected by `just dev`; unique per agent worktree |
+| `APP_PORT` | `8443` | Host HTTPS port selected by development/E2E scripts; unique per agent worktree |
+| `ADDR` | `:8443` | Low-level server listen address; derived from `APP_PORT` by scripts |
+| `DATABASE_URL` | Local Compose PostgreSQL URL | Low-level PostgreSQL DSN; derived from `DATABASE_NAME` by scripts |
 | `APP_SECRET` | Set by `flake.nix` | At least 32 bytes; replace outside local development |
 | `TLS_CERT_FILE` | `.certs/localhost.pem` | TLS certificate |
 | `TLS_KEY_FILE` | `.certs/localhost-key.pem` | TLS private key |

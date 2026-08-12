@@ -42,7 +42,6 @@
 
             PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
             PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
-            DATABASE_URL = "postgres://dashboard:dashboard@localhost:5432/patient_dashboard?sslmode=disable";
             APP_SECRET = "local-development-only-secret-change-before-deploying";
             TLS_CERT_FILE = ".certs/localhost.pem";
             TLS_KEY_FILE = ".certs/localhost-key.pem";

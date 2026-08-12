@@ -1,6 +1,9 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
+set dotenv-load := true
 
-app_url := "https://localhost:8443"
+app_port := env_var_or_default("APP_PORT", "8443")
+database_name := env_var_or_default("DATABASE_NAME", "patient_dashboard")
+app_url := "https://localhost:" + app_port
 
 # List the available project commands.
 default:
@@ -21,19 +24,23 @@ deps:
 infra-up:
   docker compose up -d --wait postgres redis
 
-# Stop infrastructure without deleting its data.
-infra-down:
+# Stop infrastructure shared by every worktree; requires an explicit acknowledgement.
+shared-infra-down acknowledgement:
+  @[[ {{quote(acknowledgement)}} == "all-agents" ]] || { echo "Refusing: run 'just shared-infra-down all-agents'" >&2; exit 2; }
   docker compose stop postgres redis
 
-# Delete and recreate database data while retaining the Docker development CA.
-infra-reset:
-  docker compose down
-  docker volume rm patient-dashboard_postgres-data patient-dashboard_redis-data 2>/dev/null || true
-  docker compose up -d --wait postgres redis
+# Reset the configured logical database after typing its exact name.
+infra-reset database:
+  @[[ {{quote(database)}} == {{quote(database_name)}} ]] || { echo "Refusing: name does not match this worktree's DATABASE_NAME" >&2; exit 2; }
+  ./scripts/database.sh reset {{quote(database)}}
 
-# Run the Go server locally over HTTPS/2.
+# Ensure the configured worktree database exists.
+db-ensure: infra-up
+  ./scripts/database.sh ensure {{quote(database_name)}}
+
+# Run the Go server locally over HTTPS/2 using this worktree's database and port.
 dev: certs infra-up
-  go run ./cmd/server
+  ./scripts/dev.sh
 
 # Build and run the Nix-independent Docker stack using the shared mkcert certificate.
 docker-up:
@@ -43,9 +50,9 @@ docker-up:
 docker-logs:
   docker compose --profile app logs --follow app
 
-# Stop the complete Docker stack.
+# Stop only the containerized application; shared PostgreSQL and Redis stay up.
 docker-down:
-  docker compose --profile app down
+  docker compose --profile app stop app
 
 # Format all Go source files.
 fmt:
@@ -67,7 +74,7 @@ test:
 
 # Create a fresh migrated PostgreSQL database per backend integration test.
 test-integration: infra-up
-  go test -count=1 -tags=integration ./internal/postgres
+  TEST_DATABASE_URL="postgres://dashboard:dashboard@localhost:5432/postgres?sslmode=disable" go test -count=1 -tags=integration ./internal/postgres
 
 # Run static checks and unit tests.
 check: fmt-check typecheck test
@@ -80,9 +87,9 @@ check-all: check test-integration
 e2e: certs infra-up deps
   ./scripts/e2e.sh
 
-# Open Playwright's interactive test UI.
+# Open Playwright's interactive UI against its own fresh migrated database.
 e2e-ui: certs infra-up deps
-  pnpm exec playwright test --ui
+  ./scripts/e2e.sh --ui
 
 # Confirm the running development server negotiated HTTP/2.
 protocol:

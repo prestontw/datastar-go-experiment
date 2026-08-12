@@ -44,12 +44,12 @@ services:
     user: "${LOCAL_UID:-65532}:${LOCAL_GID:-65532}"
     environment:
       ADDR: ":8443"
-      DATABASE_URL: "postgres://dashboard:dashboard@postgres:5432/patient_dashboard?sslmode=disable"
-      APP_SECRET: "docker-development-only-secret-change-before-deploying"
+      DATABASE_URL: "postgres://dashboard:dashboard@postgres:5432/${DATABASE_NAME:-patient_dashboard}?sslmode=disable"
+      APP_SECRET: "${APP_SECRET:-docker-development-only-secret-change-before-deploying}"
       TLS_CERT_FILE: "/certs/localhost.pem"
       TLS_KEY_FILE: "/certs/localhost-key.pem"
     ports:
-      - "8443:8443"
+      - "${APP_PORT:-8443}:8443"
     volumes:
       - ./.certs/localhost.pem:/certs/localhost.pem:ro
       - ./.certs/localhost-key.pem:/certs/localhost-key.pem:ro

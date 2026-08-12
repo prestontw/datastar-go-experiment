@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-const migrationLockID int64 = 724_846_231
+const migrationLockSeed int64 = 724_846_231
 
 // migrationFiles are compiled into both the local and containerized server
 // binaries, so every execution mode applies exactly the same schema history.
@@ -41,9 +41,14 @@ func (s *Store) Migrate(ctx context.Context) error {
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	// Multiple local/container processes can point at the same Compose database.
-	// The transaction-scoped advisory lock serializes their startup migrations.
-	if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1)", migrationLockID); err != nil {
+	// Multiple local/container processes can point at the same logical database.
+	// Deriving the transaction-scoped lock from current_database() serializes
+	// migrations for that database without blocking independent agent databases
+	// in the same PostgreSQL cluster.
+	if _, err := tx.ExecContext(ctx,
+		"SELECT pg_advisory_xact_lock(hashtextextended(current_database(), $1))",
+		migrationLockSeed,
+	); err != nil {
 		return fmt.Errorf("lock migrations: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
