@@ -19,7 +19,47 @@ A small patient-practice dashboard built with Go’s standard HTTP server, route
 
 ## Quick start
 
-You need Nix with flakes enabled and a running Docker daemon.
+Choose either workflow. Docker execution does not require Nix, Go, pnpm, `just`, PostgreSQL, or Redis on the host. Both workflows intentionally require `mkcert` and reuse the same `.certs/localhost*.pem` files, so trust and direct TLS/HTTP2 behavior stay as close as possible.
+
+### Docker workflow on macOS without Nix
+
+Install Docker Desktop and `mkcert` with Homebrew. Install `nss` as well if Firefox should use the generated CA:
+
+```sh
+brew install mkcert
+# Optional for Firefox:
+brew install nss
+```
+
+Then run:
+
+```sh
+./scripts/docker-up.sh
+```
+
+The script runs `mkcert -install`, creates the shared localhost certificate if it is missing, builds the Go application in Docker, and starts the app, PostgreSQL, and Redis. After the macOS trust prompt is accepted, Chrome and Safari should open <https://localhost:8443/patients> without a certificate warning. The certificate covers `localhost`, `127.0.0.1`, and `::1`.
+
+Useful Docker-only commands:
+
+```sh
+docker compose --profile app logs --follow app
+docker compose --profile app down       # retain database data and host certificates
+docker compose --profile app down -v    # delete database/Redis data; host certificates remain
+```
+
+The wrapper also supplies the host UID/GID so the unprivileged scratch container can read the owner-only private key. The equivalent explicit sequence is:
+
+```sh
+./scripts/certs.sh
+LOCAL_UID="$(id -u)" LOCAL_GID="$(id -g)" \
+  docker compose --profile app up -d --wait --build
+```
+
+Do not share the `.certs` directory or use this development certificate in production.
+
+### Nix development workflow
+
+You need Nix with flakes enabled and access to either the host Docker daemon or another compatible Docker endpoint:
 
 ```sh
 nix develop
@@ -27,35 +67,20 @@ just setup
 just dev
 ```
 
-`just setup` will:
-
-1. Create and trust a localhost certificate with `mkcert`.
-2. Start PostgreSQL and Redis with Docker Compose.
-3. Install test-only packages from `pnpm-lock.yaml`.
-
-Open <https://localhost:8443/patients>. The application applies its PostgreSQL schema and synthetic seed data at startup.
+`just setup` creates a trusted local `mkcert` certificate, starts PostgreSQL and Redis through Compose, and installs the locked test-only packages. Nix supplies Docker client tools for convenience but does not run a Docker daemon; using Docker Desktop’s/your host’s `docker` command instead is also valid.
 
 Run `just` to discover all commands. Common commands are:
 
 ```sh
 just dev          # local Go process + containerized infrastructure
+just docker-up    # same Docker-only script described above
 just check        # formatting, JS/TS typechecking, Go tests, and go vet
 just e2e          # Playwright sanity and cross-view realtime tests
 just protocol     # print the negotiated HTTP protocol
 just infra-reset  # discard and recreate local data
 ```
 
-### Complete Docker stack
-
-Generate the trusted certificate once, then build and run the app with the same direct TLS/HTTP2 setup:
-
-```sh
-nix develop
-just docker-up
-just docker-logs
-```
-
-The Compose recipe runs the container as your local UID/GID so it can read the owner-only mkcert private key mounted from `.certs/`.
+The application applies its PostgreSQL schema and synthetic seed data at startup.
 
 ## Routes
 

@@ -9,14 +9,9 @@ default:
 # Prepare certificates, containers, and browser-test dependencies.
 setup: certs infra-up deps
 
-# Generate and trust a localhost development certificate.
+# Generate and trust the localhost certificate shared by local and Docker runs.
 certs:
-  @mkdir -p .certs
-  @if [[ ! -s .certs/localhost.pem || ! -s .certs/localhost-key.pem ]]; then \
-    mkcert -install; \
-    mkcert -cert-file .certs/localhost.pem -key-file .certs/localhost-key.pem localhost 127.0.0.1 ::1; \
-    chmod 0600 .certs/localhost-key.pem; \
-  fi
+  ./scripts/certs.sh
 
 # Install pnpm-managed test and typecheck dependencies.
 deps:
@@ -30,18 +25,19 @@ infra-up:
 infra-down:
   docker compose stop postgres redis
 
-# Delete and recreate the development databases.
+# Delete and recreate database data while retaining the Docker development CA.
 infra-reset:
-  docker compose down --volumes
+  docker compose down
+  docker volume rm patient-dashboard_postgres-data patient-dashboard_redis-data 2>/dev/null || true
   docker compose up -d --wait postgres redis
 
 # Run the Go server locally over HTTPS/2.
 dev: certs infra-up
   go run ./cmd/server
 
-# Build and run the complete stack in Docker over HTTPS/2.
-docker-up: certs
-  LOCAL_UID="$(id -u)" LOCAL_GID="$(id -g)" docker compose --profile app up -d --wait --build
+# Build and run the Nix-independent Docker stack using the shared mkcert certificate.
+docker-up:
+  ./scripts/docker-up.sh
 
 # Follow logs from the containerized application.
 docker-logs:

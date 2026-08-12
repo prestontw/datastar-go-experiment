@@ -132,9 +132,9 @@ This design keeps Hyperlith’s grain: commands remain distinct, the database is
 
 ### 9. Terminate trusted TLS directly in the Go process
 
-Local and container execution both call `http.Server.ListenAndServeTLS` with HTTP/1.1 and HTTP/2 explicitly enabled. There is no development-only plaintext path or Docker reverse proxy. `mkcert` produces a trusted localhost certificate mounted into the container. SSE has no server write timeout; shutdown cancellation closes streams.
+Local and container execution both call `http.Server.ListenAndServeTLS` with HTTP/1.1 and HTTP/2 explicitly enabled. There is no development-only plaintext path or Docker reverse proxy. Both development workflows use the same host-generated `mkcert` files in `.certs/`: the local Go process reads them directly and Compose bind-mounts them read-only into the unprivileged application container. `scripts/certs.sh` is the common idempotent generation/trust step. Nix supplies `mkcert` on Linux; a non-Nix Mac installs it independently. SSE has no server write timeout; shutdown cancellation closes streams.
 
-**Consequences:** local behavior exercises the same transport semantics as the container, reducing SSE connection-limit and buffering surprises. A production deployment may terminate TLS at a proxy, but that proxy must preserve streaming, avoid response buffering, and negotiate HTTP/2 with clients.
+**Consequences:** local and container behavior share the issuing CA, leaf certificate, trust procedure, server implementation, and HTTP/2 semantics, reducing transport-specific differences and SSE surprises. Docker Desktop users need no Nix, Go, pnpm, or `just`, but do need host `mkcert`, because trust belongs to the browser’s host OS and should not be delegated to a container. The Docker wrapper supplies the host UID/GID so the scratch container can read the owner-only key without weakening its permissions. A production deployment must use a real certificate or may terminate TLS at a proxy that preserves streaming, avoids response buffering, and negotiates HTTP/2 with clients.
 
 ### 10. Pin tools and test at multiple levels
 
@@ -145,7 +145,7 @@ Local and container execution both call `http.Server.ListenAndServeTLS` with HTT
 - Go tests cover pure commands, security tokens, event dropping, templates, and HTTP command boundaries.
 - Playwright checks HTTP/2, Web Component upgrade, patient creation, CSRF rejection, query-param routing, and one change appearing on two different pages.
 
-`just` is the discoverable command interface; Nix is the tool environment; Docker Compose is the PostgreSQL/Redis runtime environment.
+`just` is the discoverable command interface for Nix development. `scripts/docker-up.sh` forms a Nix-independent Docker entry point and calls the shared certificate helper before Compose. Nix is an optional development tool environment, not a container runtime prerequisite; it supplies Docker client tools but expects a host or remote Docker daemon. Docker Compose is the PostgreSQL/Redis runtime environment in both workflows and can also run the application.
 
 ## Alternatives considered
 
@@ -177,3 +177,4 @@ Create a superseding ADR if any of the following occurs: real authentication/PHI
 - **2026-08-12:** Removed PostgreSQL from the Nix shell. `lib/pq` is pure Go and needs no PostgreSQL headers; PostgreSQL remains a Docker Compose runtime service.
 - **2026-08-12:** Clarified morph-time focus retention and added stable editor IDs, preserved `<details open>`, and a cross-client focus/value/selection test. Expanded the CSP tradeoff and hardening paths.
 - **2026-08-12:** Chose to retain literal `.gohtml` CSS colocation for the PoC, documented adjacent external CSS and vendored-Datastar hardening tradeoffs, and established the intended optimistic-concurrency/conflict-UI policy for future task editing.
+- **2026-08-12:** Made full-stack Docker execution independent of Nix while requiring host `mkcert`. Local Go and Docker runs now reuse the same owner-only certificate files and host trust, favoring parity over an additional container-only development CA.

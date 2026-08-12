@@ -35,9 +35,12 @@ services:
 
   app:
     profiles: ["app"]
+    image: patient-dashboard:dev
     build:
       context: .
       dockerfile: Dockerfile
+    # scripts/docker-up.sh supplies the host IDs. This keeps the scratch image
+    # unprivileged while allowing it to read the owner-only bind-mounted key.
     user: "${LOCAL_UID:-65532}:${LOCAL_GID:-65532}"
     environment:
       ADDR: ":8443"
