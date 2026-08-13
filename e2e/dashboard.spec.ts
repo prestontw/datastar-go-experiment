@@ -118,13 +118,16 @@ test('debounces interactive patient search until typing pauses', async ({ page }
     patient: new URL(window.location.href).searchParams.get('patient'),
     search: new URL(window.location.href).searchParams.get('q'),
   }))).toEqual({
-    patient: '019fbd32-0602-7002-8000-000000000002',
+    patient: null,
     search: 'Noor',
   })
   await expect(page.locator('a.patient-link')).toHaveCount(1)
-  await expect(page.getByRole('heading', { name: 'Elias Brooks' })).toBeVisible()
+  await expect(page.getByText('Select or create a patient', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Elias Brooks' })).not.toBeVisible()
   await expect(search).toHaveValue('Noor')
 
+  await page.reload()
+  await expect(page.getByText('Select or create a patient', { exact: true })).toBeVisible()
   await page.locator('a.patient-link', { hasText: 'Noor Ahmed' }).click()
   await expect(page.getByRole('heading', { name: 'Noor Ahmed' })).toBeVisible()
   await page.reload()

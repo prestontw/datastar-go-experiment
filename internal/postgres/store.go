@@ -68,13 +68,7 @@ func (s *Store) Dashboard(ctx context.Context, query domain.DashboardQuery) (dom
 			break
 		}
 	}
-	if selected == nil && query.PatientID != "" {
-		selected, err = patientByID(ctx, tx, query.PatientID)
-		if err != nil {
-			return domain.DashboardSnapshot{}, err
-		}
-	}
-	if selected == nil && len(patients) > 0 {
+	if selected == nil && query.Search == "" && len(patients) > 0 {
 		patient := patients[0]
 		selected = &patient
 	}
@@ -144,33 +138,6 @@ func listPatients(ctx context.Context, tx *sql.Tx, search string) ([]domain.Pati
 		return nil, fmt.Errorf("iterate patients: %w", err)
 	}
 	return patients, nil
-}
-
-func patientByID(ctx context.Context, tx *sql.Tx, id string) (*domain.Patient, error) {
-	var patient domain.Patient
-	err := tx.QueryRowContext(ctx, `
-		SELECT p.id, p.name, p.date_of_birth, p.pronouns, p.care_team,
-			count(t.id) FILTER (WHERE t.status = 'open') AS open_tasks,
-			count(t.id) AS total_tasks
-		FROM patients p
-		LEFT JOIN patient_tasks t ON t.patient_id = p.id
-		WHERE p.id::text = $1
-		GROUP BY p.id`, id).Scan(
-		&patient.ID,
-		&patient.Name,
-		&patient.DateOfBirth,
-		&patient.Pronouns,
-		&patient.CareTeam,
-		&patient.OpenTasks,
-		&patient.TotalTasks,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("query selected patient: %w", err)
-	}
-	return &patient, nil
 }
 
 func listPatientTasks(ctx context.Context, tx *sql.Tx, patientID, status string) ([]domain.Task, error) {

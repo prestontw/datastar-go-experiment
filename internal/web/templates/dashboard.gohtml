@@ -105,7 +105,6 @@
         <form class="search" method="get" action="/patients" data-patient-search>
           <input id="patient-search" type="search" name="q" value="{{.Query.Search}}" aria-label="Search patients" placeholder="Search patients…" autocomplete="off">
           <input type="hidden" name="status" value="{{.Query.Status}}">
-          {{with .SelectedPatient}}<input type="hidden" name="patient" value="{{.ID}}">{{end}}
           <button class="button secondary" type="submit">Search</button>
         </form>
       </header>
