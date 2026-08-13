@@ -1,5 +1,7 @@
 // @ts-check
 
+import { patientSearchURL } from './patient-view-policy.js'
+
 const patientNavigationSelector = 'a[data-patient-navigation]'
 const patientSearchSelector = 'form[data-patient-search]'
 const patientSearchDelay = 300
@@ -67,19 +69,23 @@ function navigateToPatientView(link) {
   dispatchPatientURL('patient-navigation', new URL(link.href, document.baseURI))
 }
 
+/**
+ * @param {FormData} data
+ * @param {string} name
+ */
+function stringFormValue(data, name) {
+  const value = data.get(name)
+  return typeof value === 'string' ? value : ''
+}
+
 /** @param {HTMLFormElement} form */
 function navigateToPatientSearch(form) {
   const data = new FormData(form)
-  const url = new URL(form.action, document.baseURI)
-  url.search = ''
-  for (const [name, value] of data) {
-    if (typeof value === 'string' && value.trim()) {
-      url.searchParams.append(name, value.trim())
-    }
-  }
-  // A non-empty search starts without a task context. Once the user chooses a
-  // result, clearing the query retains that explicit selection.
-  if (url.searchParams.get('q')) url.searchParams.delete('patient')
+  const url = patientSearchURL(form.action, {
+    search: stringFormValue(data, 'q'),
+    status: stringFormValue(data, 'status'),
+    patientID: stringFormValue(data, 'patient'),
+  })
   dispatchPatientURL('patient-search', url)
 }
 

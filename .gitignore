@@ -39,7 +39,9 @@
 !/docs/adr/
 !/docs/adr/*.md
 
-# Browser tests
+# JavaScript unit tests and browser tests
+!/tests/
+!/tests/*.test.js
 !/e2e/
 !/e2e/*.ts
 

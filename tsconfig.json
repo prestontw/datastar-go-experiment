@@ -12,6 +12,7 @@
   },
   "include": [
     "internal/web/assets/**/*.js",
+    "tests/**/*.js",
     "e2e/**/*.ts",
     "playwright.config.ts"
   ]

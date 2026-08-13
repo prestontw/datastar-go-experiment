@@ -74,9 +74,9 @@ func TestPageShellSetsSecurityCookiesAndHeaders(t *testing.T) {
 	}
 }
 
-func TestServesCheckedPatientNavigationUtility(t *testing.T) {
+func TestServesCheckedPatientViewNavigationUtility(t *testing.T) {
 	server, _ := newTestServer(t)
-	request := httptest.NewRequest(http.MethodGet, "https://localhost/assets/patient-navigation.js", nil)
+	request := httptest.NewRequest(http.MethodGet, "https://localhost/assets/patient-view-navigation.js", nil)
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, request)
 
@@ -92,6 +92,19 @@ func TestServesCheckedPatientNavigationUtility(t *testing.T) {
 	}
 	if !strings.Contains(asset, "patientSearchDelay = 300") || !strings.Contains(asset, "data-patient-search") {
 		t.Fatal("navigation utility does not contain delegated debounced search behavior")
+	}
+	if !strings.Contains(asset, "import { patientSearchURL } from './patient-view-policy.js'") {
+		t.Fatal("navigation utility does not use the pure search URL policy")
+	}
+
+	policyRequest := httptest.NewRequest(http.MethodGet, "https://localhost/assets/patient-view-policy.js", nil)
+	policyResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(policyResponse, policyRequest)
+	if policyResponse.Code != http.StatusOK {
+		t.Fatalf("policy status = %d, body = %s", policyResponse.Code, policyResponse.Body.String())
+	}
+	if !strings.Contains(policyResponse.Body.String(), "export function patientSearchURL") {
+		t.Fatal("search URL policy asset does not export patientSearchURL")
 	}
 }
 

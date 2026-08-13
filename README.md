@@ -137,7 +137,7 @@ This isolates server ports, schema, rows, migration history, and notifications. 
 
 ## Test database strategy
 
-Fast `go test ./...` tests stay database-free: domain and security tests are pure, HTTP handler tests use the repository interface with a fake, and migration discovery/checksum tests inspect the embedded files. Database behavior is tested separately and explicitly:
+Fast `just test` checks the table-driven JavaScript view-transition policy with Node's built-in test runner and runs database-free Go tests: domain and security tests are pure, HTTP handler tests use the repository interface with a fake, PostgreSQL selection policy is a pure unit, and migration discovery/checksum tests inspect the embedded files. Database behavior is tested separately and explicitly:
 
 ```sh
 just test-integration
@@ -162,11 +162,22 @@ Integration tests use the real `lib/pq` store and follow the “Zero to Producti
 
 There is one URL per page. The GET/POST pair avoids separate “initial page” and “updates” URLs while preserving HTTP semantics for the static shim and Datastar stream.
 
-Patient and status links keep canonical query-string URLs but are progressively enhanced. A small checked, dependency-free utility (`internal/web/assets/patient-navigation.js`) delegates `mousedown` and `click` handling for links marked only with `data-patient-navigation`. Plain primary-button navigation begins on mouse down; the later click is suppressed. Keyboard/synthetic clicks use the click fallback, while Command/Ctrl/Shift/Alt clicks, non-primary buttons, downloads, and alternate targets retain native behavior. The utility emits one event to the stable Datastar stream controller, which keeps the current dashboard visible and updates browser history. A single reactive stream effect owns every patient-page request: changing its canonical URL cancels the prior stream before opening the replacement, preventing stale URL subscriptions from morphing the view after a task write. Back/forward repeats the stream transition; without JavaScript, the same `href` performs ordinary navigation.
+Patient and status links keep canonical query-string URLs but are progressively enhanced. A small checked, dependency-free utility (`internal/web/assets/patient-view-navigation.js`) delegates `mousedown` and `click` handling for links marked only with `data-patient-navigation`. Plain primary-button navigation begins on mouse down; the later click is suppressed. Keyboard/synthetic clicks use the click fallback, while Command/Ctrl/Shift/Alt clicks, non-primary buttons, downloads, and alternate targets retain native behavior. The utility emits one event to the stable Datastar stream controller, which keeps the current dashboard visible and updates browser history. A single reactive stream effect owns every patient-page request: changing its canonical URL cancels the prior stream before opening the replacement, preventing stale URL subscriptions from morphing the view after a task write. Back/forward repeats the stream transition; without JavaScript, the same `href` performs ordinary navigation.
 
 The same utility progressively enhances the GET search form. Input is debounced for 300 ms, so no search request starts while keystrokes continue inside that quiet window; pausing opens one replacement stream, keeps the input focused, filters the patient picker, clears the task pane until a result is chosen, and uses `history.replaceState` so incremental queries do not flood browser history. An explicit patient choice cancels any pending search timer so an older query cannot overwrite the newer selection; clearing the search after choosing a result retains that patient while restoring the full picker. Explicit form submission runs immediately, and the ordinary GET form remains the no-JavaScript fallback.
 
-This adds one embedded same-origin JavaScript asset and no package, build step, or framework infrastructure. Links between Patients and Due tasks remain native because they cross page renderers and scoped styles. Explicit opt-in is safer and smaller than globally hijacking all links.
+The transition policy is explicit and executable:
+
+| Search transition | `q` | `patient` |
+| --- | --- | --- |
+| Start or refine search | non-empty | removed |
+| Choose a result | retained | chosen patient |
+| Clear after choosing | removed | retained |
+| Clear without choosing | removed | absent |
+
+`patientSearchURL` in `internal/web/assets/patient-view-policy.js` owns the client URL rules and is table-tested in `tests/patient-view-policy.test.js`. `selectDashboardPatient` in `internal/postgres/store.go` owns server interpretation of filtered results and is table-tested in `internal/postgres/store_test.go`. The rendered hidden patient field is derived from the selected snapshot; it transports that canonical selection through the GET form rather than introducing another state store.
+
+The checked controller and its pure policy are embedded same-origin JavaScript modules and add no package, build step, or framework infrastructure. Links between Patients and Due tasks remain native because they cross page renderers and scoped styles. Explicit opt-in is safer and smaller than globally hijacking all links.
 
 Same-page navigation currently clears incomplete create-patient and create-task form signals, preventing a task draft from following the user to a different patient. Future work is to persist drafts per author/tab and subject—especially new-task drafts keyed by patient—restore them on return, show age/ownership, and clean them up after submission or retention expiry.
 

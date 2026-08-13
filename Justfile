@@ -60,8 +60,9 @@ fmt-check:
 typecheck: deps
   pnpm run typecheck
 
-# Run fast Go unit tests; these do not require PostgreSQL.
-test:
+# Run fast JavaScript and Go unit tests; these do not require PostgreSQL.
+test: deps
+  pnpm run test:unit
   go test ./...
 
 # Create a fresh migrated PostgreSQL database per backend integration test.

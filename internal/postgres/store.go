@@ -60,18 +60,7 @@ func (s *Store) Dashboard(ctx context.Context, query domain.DashboardQuery) (dom
 		return domain.DashboardSnapshot{}, err
 	}
 
-	var selected *domain.Patient
-	for i := range patients {
-		if patients[i].ID == query.PatientID {
-			patient := patients[i]
-			selected = &patient
-			break
-		}
-	}
-	if selected == nil && query.Search == "" && len(patients) > 0 {
-		patient := patients[0]
-		selected = &patient
-	}
+	selected := selectDashboardPatient(patients, query)
 
 	var tasks []domain.Task
 	if selected != nil {
@@ -101,6 +90,22 @@ func (s *Store) Dashboard(ctx context.Context, query domain.DashboardQuery) (dom
 		OpenTaskCount:   openCount,
 		DueTaskCount:    dueCount,
 	}, nil
+}
+
+// selectDashboardPatient is the pure selection policy for a filtered picker.
+// An explicit patient is selected only when present in the current results;
+// browsing without a search defaults to the first patient; searching without
+// an explicit matching choice leaves the task pane empty.
+func selectDashboardPatient(patients []domain.Patient, query domain.DashboardQuery) *domain.Patient {
+	for i := range patients {
+		if patients[i].ID == query.PatientID {
+			return &patients[i]
+		}
+	}
+	if query.Search == "" && len(patients) > 0 {
+		return &patients[0]
+	}
+	return nil
 }
 
 func listPatients(ctx context.Context, tx *sql.Tx, search string) ([]domain.Patient, error) {
