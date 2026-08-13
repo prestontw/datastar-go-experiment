@@ -132,6 +132,17 @@ test('debounces interactive patient search until typing pauses', async ({ page }
   await expect(page.getByRole('heading', { name: 'Noor Ahmed' })).toBeVisible()
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Noor Ahmed' })).toBeVisible()
+
+  await page.getByRole('searchbox', { name: 'Search patients' }).fill('')
+  await expect.poll(() => page.evaluate(() => ({
+    patient: new URL(window.location.href).searchParams.get('patient'),
+    search: new URL(window.location.href).searchParams.get('q'),
+  }))).toEqual({
+    patient: '019fbd32-0603-7003-8000-000000000003',
+    search: null,
+  })
+  await expect(page.locator('a.patient-link')).toHaveCount(4)
+  await expect(page.getByRole('heading', { name: 'Noor Ahmed' })).toBeVisible()
 })
 
 test('creates a patient and rejects a forged command', async ({ page }) => {

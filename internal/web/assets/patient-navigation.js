@@ -77,6 +77,9 @@ function navigateToPatientSearch(form) {
       url.searchParams.append(name, value.trim())
     }
   }
+  // A non-empty search starts without a task context. Once the user chooses a
+  // result, clearing the query retains that explicit selection.
+  if (url.searchParams.get('q')) url.searchParams.delete('patient')
   dispatchPatientURL('patient-search', url)
 }
 
