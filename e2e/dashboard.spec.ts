@@ -149,10 +149,10 @@ test('debounces interactive patient search until typing pauses', async ({ page }
 })
 
 test('persists independent task drafts per patient and clears a submitted draft', async ({ page }) => {
-  const mayaID = '019fbd32-0601-7001-8000-000000000001'
+  const noorID = '019fbd32-0603-7003-8000-000000000003'
   const eliasID = '019fbd32-0602-7002-8000-000000000002'
-  await page.goto(`/patients?patient=${mayaID}&status=open`)
-  await expect(page.getByRole('heading', { name: 'Maya Chen' })).toBeVisible()
+  await page.goto(`/patients?patient=${noorID}&status=open`)
+  await expect(page.getByRole('heading', { name: 'Noor Ahmed' })).toBeVisible()
 
   const draftSavedFor = (patientID: string) => page.waitForResponse((response) => {
     const url = new URL(response.url())
@@ -163,28 +163,40 @@ test('persists independent task drafts per patient and clears a submitted draft'
       response.status() === 204
   })
 
-  const mayaSaved = draftSavedFor(mayaID)
-  await page.getByLabel('Task', { exact: true }).fill('Call Maya about')
+  const noorSaved = draftSavedFor(noorID)
+  await page.getByLabel('Task', { exact: true }).fill('Call Noor about')
   await page.locator('a.patient-link', { hasText: 'Elias Brooks' }).click()
-  await mayaSaved
+  await noorSaved
 
   await expect(page.getByRole('heading', { name: 'Elias Brooks' })).toBeVisible()
   const eliasSaved = draftSavedFor(eliasID)
   await page.getByLabel('Task', { exact: true }).fill('Review Elias paperwork')
   await page.getByLabel('Due date').fill('2026-08-22')
   await page.getByLabel('Priority').selectOption('urgent')
-  await page.locator('a.patient-link', { hasText: 'Maya Chen' }).click()
+  await page.locator('a.patient-link', { hasText: 'Noor Ahmed' }).click()
   await eliasSaved
-  await expect(page.getByRole('heading', { name: 'Maya Chen' })).toBeVisible()
-  await expect(page.getByLabel('Task', { exact: true })).toHaveValue('Call Maya about')
+  await expect(page.getByRole('heading', { name: 'Noor Ahmed' })).toBeVisible()
+  await expect(page.getByLabel('Task', { exact: true })).toHaveValue('Call Noor about')
 
-  const completedTitle = 'Call Maya about sleep journal'
+  const completedTitle = 'Call Noor about sleep journal'
   await page.getByLabel('Task', { exact: true }).fill(completedTitle)
   await page.getByLabel('Due date').fill('2026-08-20')
   await page.getByLabel('Priority').selectOption('important')
+
+  const patientStreamsAfterSubmit: string[] = []
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+    if (request.method() === 'POST' && url.pathname === '/patients') {
+      patientStreamsAfterSubmit.push(`${url.pathname}${url.search}`)
+    }
+  })
   await page.getByRole('button', { name: 'Add task' }).click()
 
   await expect(page.getByText(completedTitle, { exact: true })).toBeVisible()
+  await page.waitForTimeout(250)
+  expect(patientStreamsAfterSubmit).toEqual([])
+  await expect(page).toHaveURL(new RegExp(`patient=${noorID}`))
+  await expect(page.getByRole('heading', { name: 'Noor Ahmed' })).toBeVisible()
   await expect(page.getByLabel('Task', { exact: true })).toHaveValue('')
   await expect(page.getByLabel('Due date')).toHaveValue('')
   await expect(page.getByLabel('Priority')).toHaveValue('routine')
