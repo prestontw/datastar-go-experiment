@@ -6,8 +6,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -334,11 +336,15 @@ func (s *Server) commandError(w http.ResponseWriter, r *http.Request, err error)
 
 func (s *Server) javaScriptAsset(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	if name != "patient-avatar.js" && name != "patient-view-navigation.js" && name != "patient-view-policy.js" {
+	if name == "" || path.Base(name) != name || path.Ext(name) != ".js" {
 		http.NotFound(w, r)
 		return
 	}
 	asset, err := s.renderer.Asset(name)
+	if errors.Is(err, fs.ErrNotExist) {
+		http.NotFound(w, r)
+		return
+	}
 	if err != nil {
 		s.internalError(w, r, err)
 		return

@@ -137,7 +137,9 @@ This isolates server ports, schema, rows, migration history, and notifications. 
 
 ## Test database strategy
 
-Fast `just test` checks the table-driven JavaScript view-transition policy with Node's built-in test runner and runs database-free Go tests: domain and security tests are pure, HTTP handler tests use the repository interface with a fake, PostgreSQL selection policy is a pure unit, and migration discovery/checksum tests inspect the embedded files. Database behavior is tested separately and explicitly:
+Fast `just test` checks the table-driven JavaScript view-transition policy with Node's built-in test runner and runs database-free Go tests: domain and security tests are pure, HTTP handler tests use the repository interface with a fake, PostgreSQL selection policy is a pure unit, and migration discovery/checksum tests inspect the embedded files. `TestBrowserlessHTTPProtocol` additionally drives that fake-backed application through a real loopback TLS/HTTP2 connection using a stateful Go `http.Client` and cookie jar. It verifies the shell, secure session/CSRF cookies, initial Datastar SSE render, and an authenticated command at the wire level without launching a browser.
+
+That protocol test deliberately sits between direct `httptest.ResponseRecorder` tests and Playwright. It is fast and deterministic and catches request/header/cookie/SSE integration mistakes, but it is not a replacement for the real PostgreSQL integration tests or for Playwright's DOM, focus, history, event, and Web Component coverage. Database behavior is tested separately and explicitly:
 
 ```sh
 just test-integration
@@ -177,7 +179,7 @@ The transition policy is explicit and executable:
 
 `patientSearchURL` in `internal/web/assets/patient-view-policy.js` owns the client URL rules and is table-tested in `tests/patient-view-policy.test.js`. `selectDashboardPatient` in `internal/postgres/store.go` owns server interpretation of filtered results and is table-tested in `internal/postgres/store_test.go`. The rendered hidden patient field is derived from the selected snapshot; it transports that canonical selection through the GET form rather than introducing another state store.
 
-The checked controller and its pure policy are embedded same-origin JavaScript modules and add no package, build step, or framework infrastructure. Links between Patients and Due tasks remain native because they cross page renderers and scoped styles. Explicit opt-in is safer and smaller than globally hijacking all links.
+The checked controller and its pure policy are embedded same-origin JavaScript modules and add no package, build step, or framework infrastructure. The `/assets/{name}` handler serves any existing `.js` file embedded from `internal/web/assets/*.js`, while rejecting other extensions and missing files; adding another checked JavaScript asset does not require editing a server allowlist. Links between Patients and Due tasks remain native because they cross page renderers and scoped styles. Explicit opt-in is safer and smaller than globally hijacking all links.
 
 Same-page navigation currently clears incomplete create-patient and create-task form signals, preventing a task draft from following the user to a different patient. Future work is to persist drafts per author/tab and subject—especially new-task drafts keyed by patient—restore them on return, show age/ownership, and clean them up after submission or retention expiry.
 

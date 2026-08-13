@@ -155,6 +155,7 @@ Local and container execution both call `http.Server.ListenAndServeTLS` with HTT
 - `pnpm-lock.yaml` pins test-only Node packages.
 - Docker images pin Go and PostgreSQL 18.4 patch versions.
 - Fast Go tests cover pure commands, security tokens, event dropping, templates, and HTTP command boundaries through a fake repository.
+- A browserless protocol integration test uses a stateful Go `http.Client`, cookie jar, and a real loopback TLS/HTTP2 server around the application handler. It exercises shell delivery, secure cookies, CSRF, Datastar SSE, and commands with a fake repository. This deterministic middle layer catches wire-contract regressions faster than Playwright but intentionally does not claim DOM or database coverage.
 - Tagged PostgreSQL integration tests create a unique empty database per test, invoke the production embedded migrator, exercise the real store, and drop the fixture. They are explicit (`just test-integration`) rather than hidden inside fast unit tests.
 - Each Playwright run gets a unique empty database. The real server startup applies production migrations before its health check, then tests verify HTTP/2, Web Component upgrade, patient creation, CSRF rejection, query-param routing, and one change appearing on two different pages. The fixture is dropped afterward.
 
@@ -205,3 +206,4 @@ Create a superseding ADR if any of the following occurs: real authentication/PHI
 - **2026-08-12:** Made patient activation cancel pending search timers, fixing search/navigation races and reloads that could reveal a different patient than the task pane previously displayed.
 - **2026-08-13:** Changed non-empty search to clear patient selection and the task pane until a filtered result is explicitly chosen, avoiding a mismatch between the visible picker and task context; clearing search after that choice retains it.
 - **2026-08-13:** Extracted client URL and server filtered-selection policies into named pure functions with table-driven JavaScript and Go tests; renamed the broader browser controller to `patient-view-navigation.js`.
+- **2026-08-13:** Replaced the per-file JavaScript server allowlist with checked lookup of embedded `.js` assets and added a browserless TLS/HTTP2 protocol integration test using a stateful Go client.

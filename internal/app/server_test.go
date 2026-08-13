@@ -106,6 +106,18 @@ func TestServesCheckedPatientViewNavigationUtility(t *testing.T) {
 	if !strings.Contains(policyResponse.Body.String(), "export function patientSearchURL") {
 		t.Fatal("search URL policy asset does not export patientSearchURL")
 	}
+
+	for _, target := range []string{
+		"https://localhost/assets/not-embedded.js",
+		"https://localhost/assets/not-javascript.txt",
+	} {
+		request := httptest.NewRequest(http.MethodGet, target, nil)
+		response := httptest.NewRecorder()
+		server.Handler().ServeHTTP(response, request)
+		if response.Code != http.StatusNotFound {
+			t.Errorf("GET %s status = %d, want 404", target, response.Code)
+		}
+	}
 }
 
 func TestCreatePatientCommandUsesDoubleSubmitToken(t *testing.T) {
