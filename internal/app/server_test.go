@@ -71,6 +71,23 @@ func TestPageShellSetsSecurityCookiesAndHeaders(t *testing.T) {
 	}
 }
 
+func TestServesCheckedPatientNavigationUtility(t *testing.T) {
+	server, _ := newTestServer(t)
+	request := httptest.NewRequest(http.MethodGet, "https://localhost/assets/patient-navigation.js", nil)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if got := response.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/javascript") {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if !strings.Contains(response.Body.String(), "mousedown") || !strings.Contains(response.Body.String(), "data-patient-navigation") {
+		t.Fatal("navigation utility does not contain delegated mousedown behavior")
+	}
+}
+
 func TestCreatePatientCommandUsesDoubleSubmitToken(t *testing.T) {
 	server, repository := newTestServer(t)
 

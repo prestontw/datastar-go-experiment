@@ -28,9 +28,17 @@ test('morphs between patient views without replacing the document', async ({ pag
     return identity
   })
   await page.getByLabel('Task', { exact: true }).fill('Unsaved task draft')
-  await page.locator('a.patient-link', { hasText: 'Maya Chen' }).click()
+  const mayaLink = page.locator('a.patient-link', { hasText: 'Maya Chen' })
+  const box = await mayaLink.boundingBox()
+  if (!box) throw new Error('Maya patient link has no bounding box')
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
 
+  // Navigation begins on mousedown, before mouseup/click.
   await expect(page).toHaveURL(/\/patients\?patient=10000000-0000-4000-8000-000000000001&status=open/)
+  await page.mouse.up()
+
+  // The utility keeps the original document and suppresses the native click.
   await expect(page.getByRole('heading', { name: 'Maya Chen' })).toBeVisible()
   await expect(page.getByLabel('Task', { exact: true })).toHaveValue('')
   await expect.poll(() => page.evaluate(() => (
@@ -42,6 +50,11 @@ test('morphs between patient views without replacing the document', async ({ pag
   await expect.poll(() => page.evaluate(() => (
     window as typeof window & { __documentIdentity?: string }
   ).__documentIdentity)).toBe(documentIdentity)
+
+  // Keyboard activation remains available through the click fallback.
+  await page.locator('a.patient-link', { hasText: 'Maya Chen' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('heading', { name: 'Maya Chen' })).toBeVisible()
 })
 
 test('creates a patient and rejects a forged command', async ({ page }) => {

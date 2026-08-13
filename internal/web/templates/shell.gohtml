@@ -7,6 +7,7 @@
   <title>{{.Title}} · Northstar Practice</title>
   <script type="module" defer src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.2/bundles/datastar.js" integrity="sha384-SnyFlWTdFL3c8+9/1WsPuMFBq6AQOGC1LmS9upY4YkM3En3wZr5q2UvydHaMgOVG" crossorigin="anonymous"></script>
   <script type="module" defer src="/assets/patient-avatar.js"></script>
+  <script type="module" defer src="/assets/patient-navigation.js"></script>
   <style>
     :root {
       color-scheme: light;
@@ -58,7 +59,7 @@
   <header class="site-header">
     <a class="brand" href="/patients"><span class="brand-mark" aria-hidden="true">✦</span> Northstar Practice</a>
     <nav class="site-nav" aria-label="Primary navigation">
-      <a href="/patients" {{if eq .Page "patients"}}aria-current="page" data-on:click="evt.button === 0 && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && (evt.preventDefault(), window.dispatchEvent(new CustomEvent('patient-navigation', {detail: el.getAttribute('href')})))"{{end}}>Patients</a>
+      <a href="/patients" {{if eq .Page "patients"}}aria-current="page" data-patient-navigation{{end}}>Patients</a>
       <a href="/tasks/due?window=14" {{if eq .Page "due"}}aria-current="page"{{end}}>Due tasks</a>
     </nav>
     <span class="environment">Synthetic demo data</span>

@@ -75,7 +75,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/patients", s.patientsPage)
 	mux.HandleFunc("/tasks/due", s.duePage)
 	mux.HandleFunc("POST /commands", s.command)
-	mux.HandleFunc("GET /assets/patient-avatar.js", s.patientAvatar)
+	mux.HandleFunc("GET /assets/{name}", s.javaScriptAsset)
 	mux.HandleFunc("GET /healthz", s.health)
 
 	return security.Headers(s.recover(mux))
@@ -332,14 +332,26 @@ func (s *Server) commandError(w http.ResponseWriter, r *http.Request, err error)
 	s.patchSignals(w, r, map[string]any{"_error": "The change could not be saved. Please try again.", "_flash": ""})
 }
 
-func (s *Server) patientAvatar(w http.ResponseWriter, r *http.Request) {
-	asset, err := s.renderer.Asset("patient-avatar.js")
+func (s *Server) javaScriptAsset(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name != "patient-avatar.js" && name != "patient-navigation.js" {
+		http.NotFound(w, r)
+		return
+	}
+	asset, err := s.renderer.Asset(name)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
 	}
+
+	etag := fmt.Sprintf(`"%x"`, shortDigest(string(asset)))
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", "no-cache")
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
 	w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
-	w.Header().Set("Cache-Control", "public, max-age=3600")
 	_, _ = w.Write(asset)
 }
 
