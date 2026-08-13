@@ -162,6 +162,13 @@ test('persists independent task drafts per patient and clears a submitted draft'
       url.searchParams.get('patient') === patientID &&
       response.status() === 204
   })
+  const patientStreams: string[] = []
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+    if (request.method() === 'POST' && url.pathname === '/patients') {
+      patientStreams.push(`${url.pathname}${url.search}`)
+    }
+  })
 
   const noorSaved = draftSavedFor(noorID)
   await page.getByLabel('Task', { exact: true }).fill('Call Noor about')
@@ -178,23 +185,19 @@ test('persists independent task drafts per patient and clears a submitted draft'
   await expect(page.getByRole('heading', { name: 'Noor Ahmed' })).toBeVisible()
   await expect(page.getByLabel('Task', { exact: true })).toHaveValue('Call Noor about')
 
-  const completedTitle = 'Call Noor about sleep journal'
+  const completedTitle = `Call Noor about sleep journal ${Date.now()}`
   await page.getByLabel('Task', { exact: true }).fill(completedTitle)
   await page.getByLabel('Due date').fill('2026-08-20')
   await page.getByLabel('Priority').selectOption('important')
 
-  const patientStreamsAfterSubmit: string[] = []
-  page.on('request', (request) => {
-    const url = new URL(request.url())
-    if (request.method() === 'POST' && url.pathname === '/patients') {
-      patientStreamsAfterSubmit.push(`${url.pathname}${url.search}`)
-    }
-  })
   await page.getByRole('button', { name: 'Add task' }).click()
 
   await expect(page.getByText(completedTitle, { exact: true })).toBeVisible()
   await page.waitForTimeout(250)
-  expect(patientStreamsAfterSubmit).toEqual([])
+  expect(patientStreams).toEqual([
+    `/patients?patient=${eliasID}&status=open&q=`,
+    `/patients?patient=${noorID}&status=open&q=`,
+  ])
   await expect(page).toHaveURL(new RegExp(`patient=${noorID}`))
   await expect(page.getByRole('heading', { name: 'Noor Ahmed' })).toBeVisible()
   await expect(page.getByLabel('Task', { exact: true })).toHaveValue('')

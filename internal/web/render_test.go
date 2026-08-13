@@ -46,4 +46,7 @@ func TestShellReadsCSRFDoubleSubmitCookie(t *testing.T) {
 	if strings.Contains(shell, "_pageUrl") {
 		t.Fatal("shell duplicates the canonical browser URL in a signal")
 	}
+	if !strings.Contains(shell, "new AbortController()") || strings.Contains(shell, "requestCancellation: 'cleanup'") {
+		t.Fatal("shell does not explicitly own page-stream cancellation")
+	}
 }

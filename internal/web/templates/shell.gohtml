@@ -67,7 +67,7 @@
   </header>
   <div id="session-signals" hidden data-signals='{{.Signals}}' data-signals:csrf="document.cookie.match(/(?:^|; )__Host-csrf=([^;]+)/)?.[1] || ''" data-signals:tab-id="sessionStorage.patientDashboardTabId || (sessionStorage.patientDashboardTabId = self.crypto.randomUUID())" data-signals:_page-stream-revision="0"></div>
   <div id="page-stream"
-       data-effect="$_pageStreamRevision; @post(window.location.pathname + window.location.search, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"
+       data-effect="$_pageStreamRevision; self.__patientDashboardPageStream?.abort(); self.__patientDashboardPageStream = new AbortController(); @post(window.location.pathname + window.location.search, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: self.__patientDashboardPageStream})"
        data-on:online__window="$_pageStreamRevision = $_pageStreamRevision + 1"
        data-on:patient-navigation__window="history.pushState({}, '', evt.detail); $patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_draftPatientId = ''; $_flash = ''; $_error = ''; $_pageStreamRevision = $_pageStreamRevision + 1"
        data-on:patient-search__window="history.replaceState({}, '', evt.detail); $patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_draftPatientId = ''; $_flash = ''; $_error = ''; $_pageStreamRevision = $_pageStreamRevision + 1"
