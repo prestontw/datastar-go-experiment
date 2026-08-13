@@ -30,6 +30,24 @@ func TestMigratedStoreSupportsPatientTaskLifecycle(t *testing.T) {
 		t.Fatalf("seeded patients = %d, want 4", len(snapshot.Patients))
 	}
 
+	// Search filters the patient picker, not an explicit canonical selection.
+	// Reloading a selected patient must not silently switch the task pane just
+	// because that patient does not match the current search text.
+	snapshot, err = store.Dashboard(ctx, domain.DashboardQuery{
+		PatientID: "019fbd32-0601-7001-8000-000000000001",
+		Status:    "open",
+		Search:    "Noor",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Patients) != 1 || snapshot.Patients[0].Name != "Noor Ahmed" {
+		t.Fatalf("filtered patients = %#v", snapshot.Patients)
+	}
+	if snapshot.SelectedPatient == nil || snapshot.SelectedPatient.Name != "Maya Chen" {
+		t.Fatalf("selected patient after filtering = %#v", snapshot.SelectedPatient)
+	}
+
 	patientID, err := store.NewID(ctx)
 	if err != nil {
 		t.Fatal(err)

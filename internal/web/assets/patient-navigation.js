@@ -3,8 +3,7 @@
 const patientNavigationSelector = 'a[data-patient-navigation]'
 const patientSearchSelector = 'form[data-patient-search]'
 const patientSearchDelay = 300
-/** @type {WeakMap<HTMLFormElement, number>} */
-const patientSearchTimers = new WeakMap()
+let patientSearchTimer = 0
 
 /**
  * Returns the progressively enhanced patient link for an event, if this is a
@@ -54,8 +53,17 @@ function dispatchPatientURL(eventName, url) {
   window.dispatchEvent(new CustomEvent(eventName, { detail: destination }))
 }
 
+function cancelPatientSearch() {
+  if (!patientSearchTimer) return
+  window.clearTimeout(patientSearchTimer)
+  patientSearchTimer = 0
+}
+
 /** @param {HTMLAnchorElement} link */
 function navigateToPatientView(link) {
+  // A debounce scheduled from the previous patient list must never overwrite
+  // an explicit patient choice after the pointer is pressed.
+  cancelPatientSearch()
   dispatchPatientURL('patient-navigation', new URL(link.href, document.baseURI))
 }
 
@@ -74,12 +82,11 @@ function navigateToPatientSearch(form) {
 
 /** @param {HTMLFormElement} form */
 function schedulePatientSearch(form) {
-  const timer = patientSearchTimers.get(form)
-  if (timer) window.clearTimeout(timer)
-  patientSearchTimers.set(form, window.setTimeout(() => {
-    patientSearchTimers.delete(form)
+  cancelPatientSearch()
+  patientSearchTimer = window.setTimeout(() => {
+    patientSearchTimer = 0
     navigateToPatientSearch(form)
-  }, patientSearchDelay))
+  }, patientSearchDelay)
 }
 
 // Mouse users begin the request on press rather than waiting for release. Do
@@ -111,8 +118,6 @@ document.addEventListener('input', (event) => {
 document.addEventListener('submit', (event) => {
   if (!(event.target instanceof HTMLFormElement) || !event.target.matches(patientSearchSelector)) return
   event.preventDefault()
-  const timer = patientSearchTimers.get(event.target)
-  if (timer) window.clearTimeout(timer)
-  patientSearchTimers.delete(event.target)
+  cancelPatientSearch()
   navigateToPatientSearch(event.target)
 })
