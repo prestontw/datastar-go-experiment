@@ -37,6 +37,17 @@ func (s *Store) Close() error { return s.db.Close() }
 
 func (s *Store) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
 
+// NewID asks PostgreSQL 18 for a time-ordered UUIDv7. ID generation is an
+// explicit coeffect; inserts still provide IDs so command preparation remains
+// deterministic and independently testable.
+func (s *Store) NewID(ctx context.Context) (string, error) {
+	var id string
+	if err := s.db.QueryRowContext(ctx, "SELECT uuidv7()::text").Scan(&id); err != nil {
+		return "", fmt.Errorf("generate UUIDv7: %w", err)
+	}
+	return id, nil
+}
+
 func (s *Store) Dashboard(ctx context.Context, query domain.DashboardQuery) (domain.DashboardSnapshot, error) {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	if err != nil {

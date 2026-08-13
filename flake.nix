@@ -32,7 +32,7 @@
               mkcert
               nssTools
               curl
-              postgresql_17
+              postgresql_18
               util-linux
               nodejs_24
               pnpm

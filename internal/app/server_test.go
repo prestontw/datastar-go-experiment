@@ -21,6 +21,9 @@ type fakeRepository struct {
 }
 
 func (f *fakeRepository) Ping(context.Context) error { return nil }
+func (f *fakeRepository) NewID(context.Context) (string, error) {
+	return "019fbd32-0700-7000-8000-000000000001", nil
+}
 func (f *fakeRepository) Dashboard(context.Context, domain.DashboardQuery) (domain.DashboardSnapshot, error) {
 	return domain.DashboardSnapshot{}, nil
 }

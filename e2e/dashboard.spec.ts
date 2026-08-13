@@ -19,7 +19,7 @@ test('serves the patient page over HTTP/2 and upgrades the Web Component', async
 })
 
 test('morphs between patient views without replacing the document', async ({ page }) => {
-  await page.goto('/patients?patient=10000000-0000-4000-8000-000000000002&status=open')
+  await page.goto('/patients?patient=019fbd32-0602-7002-8000-000000000002&status=open')
   await expect(page.getByRole('heading', { name: 'Elias Brooks' })).toBeVisible()
 
   const documentIdentity = await page.evaluate(() => {
@@ -35,7 +35,7 @@ test('morphs between patient views without replacing the document', async ({ pag
   await page.mouse.down()
 
   // Navigation begins on mousedown, before mouseup/click.
-  await expect(page).toHaveURL(/\/patients\?patient=10000000-0000-4000-8000-000000000001&status=open/)
+  await expect(page).toHaveURL(/\/patients\?patient=019fbd32-0601-7001-8000-000000000001&status=open/)
   await page.mouse.up()
 
   // The utility keeps the original document and suppresses the native click.
@@ -87,7 +87,7 @@ test('pushes one database change into clients on two different page views', asyn
   const patientPage = await context.newPage()
   const duePage = await context.newPage()
 
-  await patientPage.goto('/patients?patient=10000000-0000-4000-8000-000000000001&status=open')
+  await patientPage.goto('/patients?patient=019fbd32-0601-7001-8000-000000000001&status=open')
   await duePage.goto('/tasks/due?window=30')
   await expect(duePage.getByRole('heading', { name: 'Due tasks' })).toBeVisible()
 

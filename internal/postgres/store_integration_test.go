@@ -30,8 +30,15 @@ func TestMigratedStoreSupportsPatientTaskLifecycle(t *testing.T) {
 		t.Fatalf("seeded patients = %d, want 4", len(snapshot.Patients))
 	}
 
+	patientID, err := store.NewID(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(patientID) != 36 || patientID[14] != '7' {
+		t.Fatalf("NewID() = %q, want UUIDv7", patientID)
+	}
 	patient := domain.NewPatient{
-		ID:          "30000000-0000-4000-8000-000000000001",
+		ID:          patientID,
 		Name:        "Integration Patient",
 		DateOfBirth: time.Date(1990, 6, 15, 0, 0, 0, 0, time.UTC),
 		Pronouns:    "they/them",
@@ -40,8 +47,12 @@ func TestMigratedStoreSupportsPatientTaskLifecycle(t *testing.T) {
 	if err := store.CreatePatient(ctx, patient); err != nil {
 		t.Fatal(err)
 	}
+	taskID, err := store.NewID(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	task := domain.NewTask{
-		ID:        "40000000-0000-4000-8000-000000000001",
+		ID:        taskID,
 		PatientID: patient.ID,
 		Title:     "Review integration result",
 		DueDate:   time.Now().UTC(),

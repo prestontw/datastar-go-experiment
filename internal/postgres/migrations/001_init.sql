@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS patients (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 120),
     date_of_birth DATE NOT NULL,
     pronouns TEXT NOT NULL DEFAULT '',
@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS patients (
 );
 
 CREATE TABLE IF NOT EXISTS patient_tasks (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
     title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 180),
     due_date DATE NOT NULL,
@@ -41,16 +41,16 @@ AFTER INSERT OR UPDATE OR DELETE ON patient_tasks
 FOR EACH STATEMENT EXECUTE FUNCTION notify_practice_changed();
 
 INSERT INTO patients (id, name, date_of_birth, pronouns, care_team) VALUES
-    ('10000000-0000-4000-8000-000000000001', 'Maya Chen', '1988-04-17', 'she/her', 'Dr. Rivera · Jordan Lee, LMFT'),
-    ('10000000-0000-4000-8000-000000000002', 'Elias Brooks', '1995-11-02', 'he/him', 'Dr. Patel · Sam Okafor, LCSW'),
-    ('10000000-0000-4000-8000-000000000003', 'Noor Ahmed', '1979-07-29', 'they/them', 'Dr. Rivera · Sam Okafor, LCSW'),
-    ('10000000-0000-4000-8000-000000000004', 'Sofia Martinez', '2001-01-12', 'she/her', 'Dr. Patel · Jordan Lee, LMFT')
+    ('019fbd32-0601-7001-8000-000000000001', 'Maya Chen', '1988-04-17', 'she/her', 'Dr. Rivera · Jordan Lee, LMFT'),
+    ('019fbd32-0602-7002-8000-000000000002', 'Elias Brooks', '1995-11-02', 'he/him', 'Dr. Patel · Sam Okafor, LCSW'),
+    ('019fbd32-0603-7003-8000-000000000003', 'Noor Ahmed', '1979-07-29', 'they/them', 'Dr. Rivera · Sam Okafor, LCSW'),
+    ('019fbd32-0604-7004-8000-000000000004', 'Sofia Martinez', '2001-01-12', 'she/her', 'Dr. Patel · Jordan Lee, LMFT')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO patient_tasks (id, patient_id, title, due_date, status, priority, completed_at) VALUES
-    ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Review sleep journal', CURRENT_DATE + 1, 'open', 'important', NULL),
-    ('20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', 'Send grounding exercise handout', CURRENT_DATE + 5, 'open', 'routine', NULL),
-    ('20000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000002', 'Medication follow-up call', CURRENT_DATE - 1, 'open', 'urgent', NULL),
-    ('20000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-000000000003', 'Coordinate care-team release', CURRENT_DATE + 10, 'open', 'important', NULL),
-    ('20000000-0000-4000-8000-000000000005', '10000000-0000-4000-8000-000000000004', 'Complete intake summary', CURRENT_DATE - 3, 'done', 'routine', now())
+    ('019fbd32-0605-7005-8000-000000000005', '019fbd32-0601-7001-8000-000000000001', 'Review sleep journal', CURRENT_DATE + 1, 'open', 'important', NULL),
+    ('019fbd32-0606-7006-8000-000000000006', '019fbd32-0601-7001-8000-000000000001', 'Send grounding exercise handout', CURRENT_DATE + 5, 'open', 'routine', NULL),
+    ('019fbd32-0607-7007-8000-000000000007', '019fbd32-0602-7002-8000-000000000002', 'Medication follow-up call', CURRENT_DATE - 1, 'open', 'urgent', NULL),
+    ('019fbd32-0608-7008-8000-000000000008', '019fbd32-0603-7003-8000-000000000003', 'Coordinate care-team release', CURRENT_DATE + 10, 'open', 'important', NULL),
+    ('019fbd32-0609-7009-8000-000000000009', '019fbd32-0604-7004-8000-000000000004', 'Complete intake summary', CURRENT_DATE - 3, 'done', 'routine', now())
 ON CONFLICT (id) DO NOTHING;

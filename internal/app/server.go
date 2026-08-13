@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -28,6 +27,7 @@ const (
 
 type Repository interface {
 	Ping(context.Context) error
+	NewID(context.Context) (string, error)
 	Dashboard(context.Context, domain.DashboardQuery) (domain.DashboardSnapshot, error)
 	Due(context.Context, domain.DueQuery) (domain.DueSnapshot, error)
 	CreatePatient(context.Context, domain.NewPatient) error
@@ -227,7 +227,7 @@ func (s *Server) command(w http.ResponseWriter, r *http.Request) {
 	command := r.URL.Query().Get("command")
 	switch command {
 	case "create-patient":
-		id, err := newUUID()
+		id, err := s.repository.NewID(r.Context())
 		if err != nil {
 			s.commandError(w, r, err)
 			return
@@ -252,7 +252,7 @@ func (s *Server) command(w http.ResponseWriter, r *http.Request) {
 		})
 
 	case "create-task":
-		id, err := newUUID()
+		id, err := s.repository.NewID(r.Context())
 		if err != nil {
 			s.commandError(w, r, err)
 			return
@@ -414,26 +414,6 @@ func dueQuery(r *http.Request) domain.DueQuery {
 		days = 14
 	}
 	return domain.DueQuery{Days: days}
-}
-
-func newUUID() (string, error) {
-	value := make([]byte, 16)
-	if _, err := rand.Read(value); err != nil {
-		return "", fmt.Errorf("generate UUID: %w", err)
-	}
-	value[6] = (value[6] & 0x0f) | 0x40
-	value[8] = (value[8] & 0x3f) | 0x80
-	encoded := make([]byte, 36)
-	hex.Encode(encoded[0:8], value[0:4])
-	encoded[8] = '-'
-	hex.Encode(encoded[9:13], value[4:6])
-	encoded[13] = '-'
-	hex.Encode(encoded[14:18], value[6:8])
-	encoded[18] = '-'
-	hex.Encode(encoded[19:23], value[8:10])
-	encoded[23] = '-'
-	hex.Encode(encoded[24:36], value[10:16])
-	return string(encoded), nil
 }
 
 func validUUID(value string) bool {

@@ -71,7 +71,7 @@ just setup
 just dev
 ```
 
-Inside a Nix shell, `just infra-up` automatically starts PostgreSQL 17 as a shared, unprivileged user process supplied by Nix. Its default data directory is `$XDG_DATA_HOME/go-datastar-patient-dashboard/postgres-17` (falling back to `~/.local/share/...`), its logs use `$XDG_STATE_HOME`, and its socket/coordination files use `$XDG_RUNTIME_DIR` or `/tmp`. Calls from multiple worktrees are serialized with `flock` and reuse that one process. `just setup` also creates the trusted `mkcert` certificate and installs locked test-only packages.
+Inside a Nix shell, `just infra-up` automatically starts PostgreSQL 18.4 as a shared, unprivileged user process supplied by Nix. Its default data directory is `$XDG_DATA_HOME/go-datastar-patient-dashboard/postgres-18` (falling back to `~/.local/share/...`), its logs use `$XDG_STATE_HOME`, and its socket/coordination files use `$XDG_RUNTIME_DIR` or `/tmp`. Calls from multiple worktrees are serialized with `flock` and reuse that one process. `just setup` also creates the trusted `mkcert` certificate and installs locked test-only packages.
 
 The Nix shell explicitly exports `INFRA_BACKEND=nix`; the Nix lifecycle/database scripts reject calls outside that environment and do not probe for Docker. The independent macOS wrapper talks to Docker Compose directly. This makes entering `nix develop` the environment boundary instead of another runtime choice each agent must understand. All VM worktrees share the Nix PostgreSQL process and port.
 
@@ -92,7 +92,7 @@ The application applies its PostgreSQL schema and synthetic seed data at startup
 
 The Go server owns schema migration in every execution mode. After connecting to PostgreSQL—and before starting the notification listener or accepting HTTPS requests—it calls `Store.Migrate`. In Nix, `just infra-up` waits for the user-level PostgreSQL process. On macOS, the Docker wrapper waits for the Compose health check before starting the application.
 
-Migration SQL lives in `internal/postgres/migrations/` and is embedded in the server binary. The migrator:
+Migration SQL lives in `internal/postgres/migrations/` and is embedded in the server binary. The schema targets PostgreSQL 18 and uses native `uuidv7()`. The migrator:
 
 1. Acquires a PostgreSQL transaction-scoped advisory lock, so two local/container server processes cannot migrate concurrently.
 2. Creates a `schema_migrations` ledger if needed.
@@ -100,7 +100,9 @@ Migration SQL lives in `internal/postgres/migrations/` and is embedded in the se
 4. Verifies the SHA-256 checksum of every previously applied file and refuses edited history or a database newer than the binary.
 5. Applies all pending migrations and ledger entries in one transaction. A failure rolls the entire migration attempt back and prevents the HTTPS server from starting.
 
-`001_init.sql` is idempotent to adopt databases created before the ledger was introduced; after that one-time adoption it is recorded and skipped. Add future changes as `002_description.sql`, `003_description.sql`, and so on—never edit an applied file. During local development, an intentional rewrite of one database’s migration history requires naming it explicitly, for example `just infra-reset patient_dashboard_agent_a`. This force-drops and recreates only that logical database; it never stops the selected PostgreSQL process or removes its data directory/volume.
+`001_init.sql` defines native `UUID` primary keys with `DEFAULT uuidv7()`. Application commands request IDs from PostgreSQL as explicit coeffects before preparing inserts, so all newly created patient/task IDs are v7 while command functions remain deterministic. Deterministic synthetic fixtures are also valid v7 values. `001_init.sql` is idempotent within a PostgreSQL 18 database; after it is recorded it is skipped. Add future changes as `002_description.sql`, `003_description.sql`, and so on—never edit an applied file.
+
+The PostgreSQL 18 upgrade intentionally starts clean rather than performing `pg_upgrade`: Nix uses a new `postgres-18` data directory and Compose uses a new `postgres-18-data` volume. The obsolete Nix 17 cluster in the primary VM was stopped and removed during this change. On a Mac that previously ran this project, the old unreferenced volume may be deleted with `docker volume rm patient-dashboard_postgres-data` after stopping the old stack. During local development, an intentional rewrite of one database’s migration history requires naming it explicitly, for example `just infra-reset patient_dashboard_agent_a`. This force-drops and recreates only that logical database; it never stops the selected PostgreSQL process or removes its data directory/volume.
 
 The Linux Go process connects to Nix PostgreSQL through `localhost:5432` by default. The macOS application container connects to Compose PostgreSQL through `postgres:5432`. These environments intentionally have separate physical data stores; they share migration behavior and logical naming, not rows.
 

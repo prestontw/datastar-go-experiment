@@ -23,4 +23,7 @@ func TestEmbeddedMigrationsAreOrderedAndChecksummed(t *testing.T) {
 	if !strings.Contains(migration.SQL, "CREATE TABLE IF NOT EXISTS patients") {
 		t.Fatal("initial migration does not contain the patient schema")
 	}
+	if !strings.Contains(migration.SQL, "DEFAULT uuidv7()") {
+		t.Fatal("initial migration does not use PostgreSQL UUIDv7 defaults")
+	}
 }

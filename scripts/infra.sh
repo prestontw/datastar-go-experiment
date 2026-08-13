@@ -38,7 +38,7 @@ user_id=$(id -u)
 data_home=${XDG_DATA_HOME:-"$HOME/.local/share"}
 state_home=${XDG_STATE_HOME:-"$HOME/.local/state"}
 runtime_home=${XDG_RUNTIME_DIR:-"/tmp/patient-dashboard-$user_id"}
-pgdata=${PATIENT_DASHBOARD_PGDATA:-"$data_home/go-datastar-patient-dashboard/postgres-17"}
+pgdata=${PATIENT_DASHBOARD_PGDATA:-"$data_home/go-datastar-patient-dashboard/postgres-18"}
 pgstate=${PATIENT_DASHBOARD_PGSTATE:-"$state_home/go-datastar-patient-dashboard"}
 pgruntime=${PATIENT_DASHBOARD_PGRUNTIME:-"$runtime_home/go-datastar-patient-dashboard"}
 
