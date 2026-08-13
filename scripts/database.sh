@@ -3,6 +3,11 @@ set -eu
 
 cd "$(dirname "$0")/.."
 
+if [ "${INFRA_BACKEND:-}" != nix ]; then
+  echo "scripts/database.sh belongs to the Nix development environment; run 'nix develop'." >&2
+  exit 2
+fi
+
 usage() {
   cat >&2 <<'EOF'
 Usage: scripts/database.sh ensure DATABASE_NAME
@@ -38,23 +43,30 @@ case "$database" in
     ;;
 esac
 
-compose() {
-  docker compose "$@"
-}
-
-if ! compose ps --status running postgres 2>/dev/null | grep -q postgres; then
-  echo "Shared PostgreSQL is not running; run 'just infra-up' first." >&2
+port=${POSTGRES_PORT:-5432}
+export PGPASSWORD=dashboard
+if ! pg_isready -h 127.0.0.1 -p "$port" -U dashboard -d postgres >/dev/null 2>&1; then
+  echo "Shared Nix PostgreSQL is not running; run 'just infra-up' first." >&2
   exit 1
 fi
 
+psql_admin() {
+  psql -h 127.0.0.1 -p "$port" -U dashboard -d postgres "$@"
+}
+createdb_admin() {
+  createdb -h 127.0.0.1 -p "$port" -U dashboard "$@"
+}
+dropdb_admin() {
+  dropdb -h 127.0.0.1 -p "$port" -U dashboard "$@"
+}
+
 exists() {
-  compose exec -T postgres psql -U dashboard -d postgres -Atqc \
-    "SELECT 1 FROM pg_database WHERE datname = '$database'" | grep -qx 1
+  psql_admin -Atqc "SELECT 1 FROM pg_database WHERE datname = '$database'" | grep -qx 1
 }
 
 create() {
   if ! exists; then
-    if compose exec -T postgres createdb -U dashboard "$database"; then
+    if createdb_admin "$database"; then
       echo "Created database $database."
     elif ! exists; then
       return 1
@@ -66,7 +78,7 @@ drop() {
   if exists; then
     # FORCE closes stale development-server and test connections. The strict
     # name guard above prevents this helper from touching PostgreSQL internals.
-    compose exec -T postgres dropdb --force -U dashboard "$database"
+    dropdb_admin --force "$database"
     echo "Dropped database $database."
   fi
 }

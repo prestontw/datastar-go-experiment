@@ -31,9 +31,9 @@
               just
               mkcert
               nssTools
-              docker-client
-              docker-compose
               curl
+              postgresql_17
+              util-linux
               nodejs_24
               pnpm
               playwright-driver.browsers
@@ -42,6 +42,7 @@
 
             PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
             PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+            INFRA_BACKEND = "nix";
             APP_SECRET = "local-development-only-secret-change-before-deploying";
             TLS_CERT_FILE = ".certs/localhost.pem";
             TLS_KEY_FILE = ".certs/localhost-key.pem";

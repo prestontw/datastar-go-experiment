@@ -15,5 +15,5 @@ esac
 ./scripts/database.sh ensure "$database"
 
 export ADDR=":$app_port"
-export DATABASE_URL="postgres://dashboard:dashboard@localhost:5432/${database}?sslmode=disable"
+export DATABASE_URL="postgres://dashboard:dashboard@localhost:${POSTGRES_PORT:-5432}/${database}?sslmode=disable"
 exec go run ./cmd/server

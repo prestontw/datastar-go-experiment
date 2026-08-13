@@ -20,14 +20,18 @@ certs:
 deps:
   pnpm install --frozen-lockfile
 
-# Start PostgreSQL and Redis, waiting until both are healthy.
+# Start the shared Nix PostgreSQL process selected by flake.nix.
 infra-up:
-  docker compose up -d --wait postgres redis
+  ./scripts/infra.sh up
+
+# Show which shared PostgreSQL backend is running.
+infra-status:
+  ./scripts/infra.sh status
 
 # Stop infrastructure shared by every worktree; requires an explicit acknowledgement.
 shared-infra-down acknowledgement:
   @[[ {{quote(acknowledgement)}} == "all-agents" ]] || { echo "Refusing: run 'just shared-infra-down all-agents'" >&2; exit 2; }
-  docker compose stop postgres redis
+  ./scripts/infra.sh down
 
 # Reset the configured logical database after typing its exact name.
 infra-reset database:
@@ -41,18 +45,6 @@ db-ensure: infra-up
 # Run the Go server locally over HTTPS/2 using this worktree's database and port.
 dev: certs infra-up
   ./scripts/dev.sh
-
-# Build and run the Nix-independent Docker stack using the shared mkcert certificate.
-docker-up:
-  ./scripts/docker-up.sh
-
-# Follow logs from the containerized application.
-docker-logs:
-  docker compose --profile app logs --follow app
-
-# Stop only the containerized application; shared PostgreSQL and Redis stay up.
-docker-down:
-  docker compose --profile app stop app
 
 # Format all Go source files.
 fmt:
@@ -74,7 +66,7 @@ test:
 
 # Create a fresh migrated PostgreSQL database per backend integration test.
 test-integration: infra-up
-  TEST_DATABASE_URL="postgres://dashboard:dashboard@localhost:5432/postgres?sslmode=disable" go test -count=1 -tags=integration ./internal/postgres
+  TEST_DATABASE_URL="postgres://dashboard:dashboard@localhost:${POSTGRES_PORT:-5432}/postgres?sslmode=disable" go test -count=1 -tags=integration ./internal/postgres
 
 # Run static checks and unit tests.
 check: fmt-check typecheck test
