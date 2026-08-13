@@ -40,7 +40,7 @@ func TestShellReadsCSRFDoubleSubmitCookie(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(shell, "__Host-csrf") || !strings.Contains(shell, "@post(window.location.pathname") {
+	if !strings.Contains(shell, "__Host-csrf") || !strings.Contains(shell, "@post($_pageUrl") || !strings.Contains(shell, `data-effect=`) {
 		t.Fatalf("shell does not initialize the secured update stream: %s", shell)
 	}
 }

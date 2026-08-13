@@ -64,12 +64,12 @@
     </nav>
     <span class="environment">Synthetic demo data</span>
   </header>
-  <div id="session-signals" hidden data-signals='{{.Signals}}' data-signals:csrf="document.cookie.match(/(?:^|; )__Host-csrf=([^;]+)/)?.[1] || ''" data-signals:tab-id="self.crypto.randomUUID()"></div>
+  <div id="session-signals" hidden data-signals='{{.Signals}}' data-signals:csrf="document.cookie.match(/(?:^|; )__Host-csrf=([^;]+)/)?.[1] || ''" data-signals:tab-id="self.crypto.randomUUID()" data-signals:_page-url="window.location.pathname + window.location.search" data-signals:_page-stream-revision="0"></div>
   <div id="page-stream"
-       data-init="@post(window.location.pathname + window.location.search, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"
-       data-on:online__window="@post(window.location.pathname + window.location.search, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"
-       data-on:patient-navigation__window="history.pushState({}, '', evt.detail); $patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_flash = ''; $_error = ''; @post(evt.detail, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"
-       data-on:popstate__window="$patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_flash = ''; $_error = ''; @post(window.location.pathname + window.location.search, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"></div>
+       data-effect="$_pageStreamRevision; @post($_pageUrl, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"
+       data-on:online__window="$_pageStreamRevision = $_pageStreamRevision + 1"
+       data-on:patient-navigation__window="history.pushState({}, '', evt.detail); $patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_flash = ''; $_error = ''; $_pageUrl = evt.detail"
+       data-on:popstate__window="$patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_flash = ''; $_error = ''; $_pageUrl = window.location.pathname + window.location.search"></div>
   <noscript><p class="noscript">This demonstration needs JavaScript to establish its Datastar update stream.</p></noscript>
   <main id="morph" aria-live="polite"></main>
 </body>

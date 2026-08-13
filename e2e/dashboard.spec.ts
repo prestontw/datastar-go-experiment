@@ -55,6 +55,15 @@ test('morphs between patient views without replacing the document', async ({ pag
   await page.locator('a.patient-link', { hasText: 'Maya Chen' }).focus()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('heading', { name: 'Maya Chen' })).toBeVisible()
+
+  // A write invalidation must only update the current patient stream. A stale
+  // stream for the initial URL used to morph the dashboard back to Elias.
+  const taskTitle = `Maya stream ownership ${Date.now()}`
+  await page.getByLabel('Task', { exact: true }).fill(taskTitle)
+  await page.getByLabel('Due date').fill('2026-08-20')
+  await page.getByRole('button', { name: 'Add task' }).click()
+  await expect(page.getByRole('heading', { name: 'Maya Chen' })).toBeVisible()
+  await expect(page.getByText(taskTitle, { exact: true })).toBeVisible()
 })
 
 test('creates a patient and rejects a forged command', async ({ page }) => {
