@@ -1,0 +1,27 @@
+database-backed HTTP protocol
+shell
+  protocol: HTTP/2.0
+  status: 200 OK
+  content-type: text/html; charset=utf-8
+  cookies: __Host-csrf, __Host-sid
+create patient
+  protocol: HTTP/2.0
+  status: 200 OK
+  event: datastar-patch-signals
+search created patient
+  protocol: HTTP/2.0
+  status: 200 OK
+  event: datastar-patch-elements
+  patients in view: 1
+  task context: empty
+  generated ID version: 7
+create task
+  protocol: HTTP/2.0
+  status: 200 OK
+  event: datastar-patch-signals
+select created patient
+  protocol: HTTP/2.0
+  status: 200 OK
+  event: datastar-patch-elements
+  patient: Protocol Patient
+  task: Review protocol snapshot

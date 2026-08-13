@@ -33,6 +33,8 @@
 !/internal/postgres/migrations/*.sql
 !/internal/web/assets/*.js
 !/internal/web/templates/*.gohtml
+!/internal/app/testdata/
+!/internal/app/testdata/*.golden
 
 # Architecture documentation
 !/docs/

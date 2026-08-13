@@ -145,7 +145,15 @@ That protocol test deliberately sits between direct `httptest.ResponseRecorder` 
 just test-integration
 ```
 
-Integration tests use the real `lib/pq` store and follow the “Zero to Production” isolation pattern. For every test, the harness connects to the selected shared PostgreSQL administrative database, creates a uniquely named empty database, invokes the production `Store.Migrate`, exercises repository behavior, and force-drops the database during cleanup. This ensures tests cannot accidentally rely on a developer’s schema or seed state. Override the administrative connection with `TEST_DATABASE_URL`; its database component is replaced for each fixture.
+Integration tests use the real `lib/pq` store and follow the “Zero to Production” isolation pattern. For every test, the harness connects to the selected shared PostgreSQL administrative database, creates a uniquely named empty database, invokes the production `Store.Migrate`, exercises behavior, and force-drops the database during cleanup. This ensures tests cannot accidentally rely on a developer’s schema or seed state. Override the administrative connection with `TEST_DATABASE_URL`; its database component is replaced for each fixture.
+
+`TestDatabaseBackedHTTPProtocol` composes those real migrations and store operations with the browserless TLS/HTTP2 client. It creates a patient and task through authenticated HTTP commands, reads each back through Datastar SSE views, and compares a normalized wire transcript at `internal/app/testdata/database_http_protocol.golden`. Dynamic UUID and security-token values are reduced to stable contract facts such as UUID version, cookie names, event types, statuses, and persisted labels. After intentionally reviewing a protocol change, update it with:
+
+```sh
+UPDATE_SNAPSHOTS=1 just test-integration
+```
+
+This gives regression flows a faster Go-native home while Playwright remains responsible for browser execution. The snapshot flow opens a fresh stream after each write; PostgreSQL `LISTEN`/`NOTIFY` propagation across already-connected views remains covered by Playwright.
 
 `just e2e` similarly creates one fresh database for the Playwright run. Playwright starts the real Go server against it, so server startup—not test setup—applies the embedded production migrations before `/healthz` becomes ready. The database is dropped after the run, and UI tests do not pollute the long-lived development database. It uses the worktree’s `APP_PORT`; stop that worktree server before E2E. Concurrent worktrees can run E2E on different ports, and Playwright deliberately refuses to reuse an existing server because it may point at the wrong database.
 
