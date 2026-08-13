@@ -34,6 +34,7 @@ type DashboardSnapshot struct {
 	Patients        []Patient
 	SelectedPatient *Patient
 	Tasks           []Task
+	TaskDraft       TaskDraft
 	Query           DashboardQuery
 	OpenTaskCount   int
 	DueTaskCount    int
@@ -64,4 +65,12 @@ type NewTask struct {
 	Title     string
 	DueDate   time.Time
 	Priority  string
+}
+
+type TaskDraft struct {
+	PatientID string
+	Title     string
+	DueDate   string
+	Priority  string
+	Revision  int64
 }

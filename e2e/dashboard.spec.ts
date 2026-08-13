@@ -45,8 +45,10 @@ test('morphs between patient views without replacing the document', async ({ pag
     window as typeof window & { __documentIdentity?: string }
   ).__documentIdentity)).toBe(documentIdentity)
 
+  await page.getByLabel('Task', { exact: true }).fill('Maya history draft')
   await page.goBack()
   await expect(page.getByRole('heading', { name: 'Elias Brooks' })).toBeVisible()
+  await expect(page.getByLabel('Task', { exact: true })).toHaveValue('Unsaved task draft')
   await expect.poll(() => page.evaluate(() => (
     window as typeof window & { __documentIdentity?: string }
   ).__documentIdentity)).toBe(documentIdentity)
@@ -55,6 +57,7 @@ test('morphs between patient views without replacing the document', async ({ pag
   await page.locator('a.patient-link', { hasText: 'Maya Chen' }).focus()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('heading', { name: 'Maya Chen' })).toBeVisible()
+  await expect(page.getByLabel('Task', { exact: true })).toHaveValue('Maya history draft')
 
   // A write invalidation must only update the current patient stream. A stale
   // stream for the initial URL used to morph the dashboard back to Elias.
@@ -143,6 +146,61 @@ test('debounces interactive patient search until typing pauses', async ({ page }
   })
   await expect(page.locator('a.patient-link')).toHaveCount(4)
   await expect(page.getByRole('heading', { name: 'Noor Ahmed' })).toBeVisible()
+})
+
+test('persists independent task drafts per patient and clears a submitted draft', async ({ page }) => {
+  const mayaID = '019fbd32-0601-7001-8000-000000000001'
+  const eliasID = '019fbd32-0602-7002-8000-000000000002'
+  await page.goto(`/patients?patient=${mayaID}&status=open`)
+  await expect(page.getByRole('heading', { name: 'Maya Chen' })).toBeVisible()
+
+  const draftSavedFor = (patientID: string) => page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return response.request().method() === 'POST' &&
+      url.pathname === '/commands' &&
+      url.searchParams.get('command') === 'save-task-draft' &&
+      url.searchParams.get('patient') === patientID &&
+      response.status() === 204
+  })
+
+  const mayaSaved = draftSavedFor(mayaID)
+  await page.getByLabel('Task', { exact: true }).fill('Call Maya about')
+  await page.locator('a.patient-link', { hasText: 'Elias Brooks' }).click()
+  await mayaSaved
+
+  await expect(page.getByRole('heading', { name: 'Elias Brooks' })).toBeVisible()
+  const eliasSaved = draftSavedFor(eliasID)
+  await page.getByLabel('Task', { exact: true }).fill('Review Elias paperwork')
+  await page.getByLabel('Due date').fill('2026-08-22')
+  await page.getByLabel('Priority').selectOption('urgent')
+  await page.locator('a.patient-link', { hasText: 'Maya Chen' }).click()
+  await eliasSaved
+  await expect(page.getByRole('heading', { name: 'Maya Chen' })).toBeVisible()
+  await expect(page.getByLabel('Task', { exact: true })).toHaveValue('Call Maya about')
+
+  const completedTitle = 'Call Maya about sleep journal'
+  await page.getByLabel('Task', { exact: true }).fill(completedTitle)
+  await page.getByLabel('Due date').fill('2026-08-20')
+  await page.getByLabel('Priority').selectOption('important')
+  await page.getByRole('button', { name: 'Add task' }).click()
+
+  await expect(page.getByText(completedTitle, { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Task', { exact: true })).toHaveValue('')
+  await expect(page.getByLabel('Due date')).toHaveValue('')
+  await expect(page.getByLabel('Priority')).toHaveValue('routine')
+
+  await page.locator('a.patient-link', { hasText: 'Elias Brooks' }).click()
+  await expect(page.getByRole('heading', { name: 'Elias Brooks' })).toBeVisible()
+  await expect(page.getByLabel('Task', { exact: true })).toHaveValue('Review Elias paperwork')
+  await expect(page.getByLabel('Due date')).toHaveValue('2026-08-22')
+  await expect(page.getByLabel('Priority')).toHaveValue('urgent')
+
+  // sessionStorage keeps this tab identity across reloads; the values below are
+  // hydrated from PostgreSQL rather than retained by the old DOM.
+  await page.reload()
+  await expect(page.getByLabel('Task', { exact: true })).toHaveValue('Review Elias paperwork')
+  await expect(page.getByLabel('Due date')).toHaveValue('2026-08-22')
+  await expect(page.getByLabel('Priority')).toHaveValue('urgent')
 })
 
 test('creates a patient and rejects a forged command', async ({ page }) => {

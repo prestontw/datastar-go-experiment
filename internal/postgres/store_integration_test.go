@@ -76,8 +76,45 @@ func TestMigratedStoreSupportsPatientTaskLifecycle(t *testing.T) {
 		DueDate:   time.Now().UTC(),
 		Priority:  "important",
 	}
-	if err := store.CreateTask(ctx, task); err != nil {
+	ownerHash := []byte("integration-test-draft-owner-hash")
+	tabID := "019fbd32-0700-7000-8000-000000000001"
+	draft := domain.TaskDraft{
+		PatientID: patient.ID,
+		Title:     "Review integration",
+		DueDate:   "2026-08-20",
+		Priority:  "important",
+		Revision:  1,
+	}
+	if err := store.SaveTaskDraft(ctx, ownerHash, tabID, draft); err != nil {
 		t.Fatal(err)
+	}
+	persistedDraft, err := store.TaskDraft(ctx, ownerHash, tabID, patient.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persistedDraft != draft {
+		t.Fatalf("persisted draft = %#v, want %#v", persistedDraft, draft)
+	}
+	if err := store.CreateTask(ctx, task, ownerHash, tabID, 2); err != nil {
+		t.Fatal(err)
+	}
+	clearedDraft, err := store.TaskDraft(ctx, ownerHash, tabID, patient.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if clearedDraft.Title != "" || clearedDraft.DueDate != "" || clearedDraft.Priority != "routine" || clearedDraft.Revision != 2 {
+		t.Fatalf("cleared draft = %#v", clearedDraft)
+	}
+	// An autosave that began before task submission cannot resurrect the draft.
+	if err := store.SaveTaskDraft(ctx, ownerHash, tabID, draft); err != nil {
+		t.Fatal(err)
+	}
+	clearedDraft, err = store.TaskDraft(ctx, ownerHash, tabID, patient.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if clearedDraft.Title != "" || clearedDraft.Revision != 2 {
+		t.Fatalf("stale autosave resurrected draft: %#v", clearedDraft)
 	}
 
 	snapshot, err = store.Dashboard(ctx, domain.DashboardQuery{PatientID: patient.ID, Status: "open"})
@@ -117,7 +154,7 @@ func TestMigrateIsIdempotentAndRecordsEmbeddedHistory(t *testing.T) {
 	).Scan(&count, &name, &checksum); err != nil {
 		t.Fatal(err)
 	}
-	if count != 1 || name != "001_init.sql" || len(checksum) != 64 {
+	if count != 2 || name != "001_init.sql" || len(checksum) != 64 {
 		t.Fatalf("migration ledger = count %d, name %q, checksum %q", count, name, checksum)
 	}
 }

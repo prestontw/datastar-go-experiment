@@ -82,18 +82,20 @@ func TestDatabaseBackedHTTPProtocol(t *testing.T) {
 	if csrf == "" {
 		t.Fatal("stateful client did not retain the CSRF cookie")
 	}
+	tabID := "019fbd32-0800-7000-8000-000000000001"
 
 	createPatient := doProtocolCommand(t, client, server.URL, csrf, "create-patient", "", map[string]any{
 		"patientName":     "Protocol Patient",
 		"patientDob":      "1991-02-03",
 		"patientPronouns": "they/them",
 		"patientCareTeam": "HTTP Client",
+		"tabId":           tabID,
 	})
 	if !strings.Contains(createPatient.Event, "datastar-patch-signals") {
 		t.Fatalf("create patient response is not a signal patch: %s", createPatient.Event)
 	}
 
-	search := initialProtocolSSE(t, client, server.URL+"/patients?status=open&q=Protocol", server.URL, csrf)
+	search := initialProtocolSSE(t, client, server.URL+"/patients?status=open&q=Protocol", server.URL, csrf, tabID)
 	if !strings.Contains(search.Event, "Protocol Patient") || !strings.Contains(search.Event, "1 in view") {
 		t.Fatalf("search event does not contain the created patient: %s", search.Event)
 	}
@@ -105,10 +107,32 @@ func TestDatabaseBackedHTTPProtocol(t *testing.T) {
 		t.Fatalf("created patient ID = %q, want UUIDv7", patientID)
 	}
 
+	saveDraft := doProtocolCommand(t, client, server.URL, csrf, "save-task-draft", "&patient="+patientID, map[string]any{
+		"tabId":             tabID,
+		"taskTitle":         "Review protocol snapshot",
+		"taskDue":           "2026-08-20",
+		"taskPriority":      "important",
+		"taskDraftRevision": 1,
+	})
+	if saveDraft.Status != "204 No Content" {
+		t.Fatalf("save draft status = %s", saveDraft.Status)
+	}
+
+	drafted := initialProtocolSSE(t, client, fmt.Sprintf(
+		"%s/patients?patient=%s&status=open&q=Protocol",
+		server.URL,
+		patientID,
+	), server.URL, csrf, tabID)
+	if !strings.Contains(drafted.Event, "Review protocol snapshot") {
+		t.Fatalf("selected patient event does not hydrate the persisted draft: %s", drafted.Event)
+	}
+
 	createTask := doProtocolCommand(t, client, server.URL, csrf, "create-task", "&patient="+patientID, map[string]any{
-		"taskTitle":    "Review protocol snapshot",
-		"taskDue":      "2026-08-20",
-		"taskPriority": "important",
+		"tabId":             tabID,
+		"taskTitle":         "Review protocol snapshot",
+		"taskDue":           "2026-08-20",
+		"taskPriority":      "important",
+		"taskDraftRevision": 1,
 	})
 	if !strings.Contains(createTask.Event, "datastar-patch-signals") {
 		t.Fatalf("create task response is not a signal patch: %s", createTask.Event)
@@ -118,7 +142,7 @@ func TestDatabaseBackedHTTPProtocol(t *testing.T) {
 		"%s/patients?patient=%s&status=open&q=Protocol",
 		server.URL,
 		patientID,
-	), server.URL, csrf)
+	), server.URL, csrf, tabID)
 	if !strings.Contains(selected.Event, "Protocol Patient") || !strings.Contains(selected.Event, "Review protocol snapshot") {
 		t.Fatalf("selected patient event does not contain persisted patient and task: %s", selected.Event)
 	}
@@ -146,6 +170,14 @@ search created patient
   patients in view: 1
   task context: empty
   generated ID version: 7
+save task draft
+  protocol: %s
+  status: %s
+load task draft
+  protocol: %s
+  status: %s
+  event: %s
+  title: Review protocol snapshot
 create task
   protocol: %s
   status: %s
@@ -167,6 +199,11 @@ select created patient
 		search.Protocol,
 		search.Status,
 		sseEventName(search.Event),
+		saveDraft.Protocol,
+		saveDraft.Status,
+		drafted.Protocol,
+		drafted.Status,
+		sseEventName(drafted.Event),
 		createTask.Protocol,
 		createTask.Status,
 		sseEventName(createTask.Event),
@@ -203,16 +240,16 @@ func doProtocolCommand(
 		t.Fatal(err)
 	}
 	body := readResponse(t, response)
-	if response.StatusCode != http.StatusOK {
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		t.Fatalf("%s status = %s, body = %s", command, response.Status, body)
 	}
 	return protocolResponse{Protocol: response.Proto, Status: response.Status, Event: body}
 }
 
-func initialProtocolSSE(t *testing.T, client *http.Client, target, origin, csrf string) protocolResponse {
+func initialProtocolSSE(t *testing.T, client *http.Client, target, origin, csrf, tabID string) protocolResponse {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	request := browserRequest(t, ctx, target, origin, map[string]any{"csrf": csrf})
+	request := browserRequest(t, ctx, target, origin, map[string]any{"csrf": csrf, "tabId": tabID})
 	response, err := client.Do(request)
 	if err != nil {
 		cancel()

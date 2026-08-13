@@ -67,7 +67,8 @@ test: deps
 
 # Create a fresh migrated PostgreSQL database per backend integration test.
 test-integration: infra-up
-  TEST_DATABASE_URL="postgres://dashboard:dashboard@localhost:${POSTGRES_PORT:-5432}/postgres?sslmode=disable" go test -count=1 -tags=integration ./internal/postgres ./internal/app
+  TEST_DATABASE_URL="postgres://dashboard:dashboard@localhost:${POSTGRES_PORT:-5432}/postgres?sslmode=disable" go test -count=1 -tags=integration ./internal/postgres
+  TEST_DATABASE_URL="postgres://dashboard:dashboard@localhost:${POSTGRES_PORT:-5432}/postgres?sslmode=disable" go test -count=1 -tags=integration ./internal/app
 
 # Run static checks and unit tests.
 check: fmt-check typecheck test

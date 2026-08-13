@@ -18,6 +18,8 @@ import (
 
 type fakeRepository struct {
 	createdPatient domain.NewPatient
+	createdTask    domain.NewTask
+	taskDraft      domain.TaskDraft
 }
 
 func (f *fakeRepository) Ping(context.Context) error { return nil }
@@ -34,8 +36,19 @@ func (f *fakeRepository) CreatePatient(_ context.Context, patient domain.NewPati
 	f.createdPatient = patient
 	return nil
 }
-func (f *fakeRepository) CreateTask(context.Context, domain.NewTask) error { return nil }
-func (f *fakeRepository) ToggleTask(context.Context, string) error         { return nil }
+func (f *fakeRepository) TaskDraft(context.Context, []byte, string, string) (domain.TaskDraft, error) {
+	return f.taskDraft, nil
+}
+func (f *fakeRepository) SaveTaskDraft(_ context.Context, _ []byte, _ string, draft domain.TaskDraft) error {
+	f.taskDraft = draft
+	return nil
+}
+func (f *fakeRepository) CreateTask(_ context.Context, task domain.NewTask, _ []byte, _ string, revision int64) error {
+	f.createdTask = task
+	f.taskDraft = domain.TaskDraft{PatientID: task.PatientID, Priority: "routine", Revision: revision}
+	return nil
+}
+func (f *fakeRepository) ToggleTask(context.Context, string) error { return nil }
 
 func newTestServer(t *testing.T) (*Server, *fakeRepository) {
 	t.Helper()

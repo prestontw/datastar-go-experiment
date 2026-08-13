@@ -33,7 +33,9 @@ type Repository interface {
 	Dashboard(context.Context, domain.DashboardQuery) (domain.DashboardSnapshot, error)
 	Due(context.Context, domain.DueQuery) (domain.DueSnapshot, error)
 	CreatePatient(context.Context, domain.NewPatient) error
-	CreateTask(context.Context, domain.NewTask) error
+	TaskDraft(context.Context, []byte, string, string) (domain.TaskDraft, error)
+	SaveTaskDraft(context.Context, []byte, string, domain.TaskDraft) error
+	CreateTask(context.Context, domain.NewTask, []byte, string, int64) error
 	ToggleTask(context.Context, string) error
 }
 
@@ -47,15 +49,16 @@ type Server struct {
 }
 
 type Signals struct {
-	CSRF            string `json:"csrf"`
-	TabID           string `json:"tabId"`
-	PatientName     string `json:"patientName"`
-	PatientDOB      string `json:"patientDob"`
-	PatientPronouns string `json:"patientPronouns"`
-	PatientCareTeam string `json:"patientCareTeam"`
-	TaskTitle       string `json:"taskTitle"`
-	TaskDue         string `json:"taskDue"`
-	TaskPriority    string `json:"taskPriority"`
+	CSRF              string `json:"csrf"`
+	TabID             string `json:"tabId"`
+	PatientName       string `json:"patientName"`
+	PatientDOB        string `json:"patientDob"`
+	PatientPronouns   string `json:"patientPronouns"`
+	PatientCareTeam   string `json:"patientCareTeam"`
+	TaskTitle         string `json:"taskTitle"`
+	TaskDue           string `json:"taskDue"`
+	TaskPriority      string `json:"taskPriority"`
+	TaskDraftRevision int64  `json:"taskDraftRevision"`
 }
 
 func NewServer(repository Repository, renderer *webviews.Renderer, hub *realtime.Hub, protector *security.Protector, logger *slog.Logger) *Server {
@@ -89,10 +92,27 @@ func (s *Server) patientsPage(w http.ResponseWriter, r *http.Request) {
 		s.serveShell(w, r, "Patient dashboard", "patients")
 	case http.MethodPost:
 		query := dashboardQuery(r)
-		s.serveUpdates(w, r, func(ctx context.Context) (string, error) {
+		s.serveUpdates(w, r, func(ctx context.Context, sid string, signals Signals) (string, error) {
 			snapshot, err := s.repository.Dashboard(ctx, query)
 			if err != nil {
 				return "", err
+			}
+			if snapshot.SelectedPatient != nil {
+				snapshot.TaskDraft = domain.TaskDraft{
+					PatientID: snapshot.SelectedPatient.ID,
+					Priority:  "routine",
+				}
+			}
+			if snapshot.SelectedPatient != nil && validUUID(signals.TabID) {
+				snapshot.TaskDraft, err = s.repository.TaskDraft(
+					ctx,
+					draftOwner(sid),
+					signals.TabID,
+					snapshot.SelectedPatient.ID,
+				)
+				if err != nil {
+					return "", err
+				}
 			}
 			return s.renderer.Dashboard(snapshot, s.today())
 		})
@@ -108,7 +128,7 @@ func (s *Server) duePage(w http.ResponseWriter, r *http.Request) {
 		s.serveShell(w, r, "Due tasks", "due")
 	case http.MethodPost:
 		query := dueQuery(r)
-		s.serveUpdates(w, r, func(ctx context.Context) (string, error) {
+		s.serveUpdates(w, r, func(ctx context.Context, _ string, _ Signals) (string, error) {
 			snapshot, err := s.repository.Due(ctx, query)
 			if err != nil {
 				return "", err
@@ -153,8 +173,8 @@ func (s *Server) serveShell(w http.ResponseWriter, r *http.Request, title, page 
 	_, _ = w.Write([]byte(body))
 }
 
-func (s *Server) serveUpdates(w http.ResponseWriter, r *http.Request, render func(context.Context) (string, error)) {
-	_, _, ok := s.authorizeSignals(w, r)
+func (s *Server) serveUpdates(w http.ResponseWriter, r *http.Request, render func(context.Context, string, Signals) (string, error)) {
+	signals, sid, ok := s.authorizeSignals(w, r)
 	if !ok {
 		return
 	}
@@ -162,7 +182,7 @@ func (s *Server) serveUpdates(w http.ResponseWriter, r *http.Request, render fun
 	events, unsubscribe := s.hub.Subscribe()
 	defer unsubscribe()
 
-	initialView, err := render(r.Context())
+	initialView, err := render(r.Context(), sid, signals)
 	if err != nil {
 		s.internalError(w, r, fmt.Errorf("initial page render: %w", err))
 		return
@@ -201,7 +221,7 @@ func (s *Server) serveUpdates(w http.ResponseWriter, r *http.Request, render fun
 		case <-timerC:
 			timerC = nil
 			timer = nil
-			view, err := render(r.Context())
+			view, err := render(r.Context(), sid, signals)
 			if err != nil {
 				s.logger.Error("realtime page render failed", "error", err, "path", r.URL.Path)
 				continue
@@ -221,7 +241,7 @@ func (s *Server) serveUpdates(w http.ResponseWriter, r *http.Request, render fun
 }
 
 func (s *Server) command(w http.ResponseWriter, r *http.Request) {
-	signals, _, ok := s.authorizeSignals(w, r)
+	signals, sid, ok := s.authorizeSignals(w, r)
 	if !ok {
 		return
 	}
@@ -253,7 +273,35 @@ func (s *Server) command(w http.ResponseWriter, r *http.Request) {
 			"_error": "", "_flash": "Patient created. All connected views are refreshing.",
 		})
 
+	case "save-task-draft":
+		patientID := r.URL.Query().Get("patient")
+		if !validUUID(patientID) || !validUUID(signals.TabID) {
+			s.validationError(w, r, errors.Join(domain.ErrInvalidCommand, errors.New("draft identity is invalid")))
+			return
+		}
+		draft, err := domain.PrepareTaskDraft(domain.SaveTaskDraftInput{
+			PatientID: patientID,
+			Title:     signals.TaskTitle,
+			DueDate:   signals.TaskDue,
+			Priority:  signals.TaskPriority,
+			Revision:  signals.TaskDraftRevision,
+		})
+		if err != nil {
+			s.validationError(w, r, err)
+			return
+		}
+		if err := s.repository.SaveTaskDraft(r.Context(), draftOwner(sid), signals.TabID, draft); err != nil {
+			s.commandError(w, r, err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusNoContent)
+
 	case "create-task":
+		if !validUUID(signals.TabID) || signals.TaskDraftRevision < 0 || signals.TaskDraftRevision == 1<<63-1 {
+			s.validationError(w, r, errors.Join(domain.ErrInvalidCommand, errors.New("draft identity is invalid")))
+			return
+		}
 		id, err := s.repository.NewID(r.Context())
 		if err != nil {
 			s.commandError(w, r, err)
@@ -269,13 +317,17 @@ func (s *Server) command(w http.ResponseWriter, r *http.Request) {
 			s.validationError(w, r, err)
 			return
 		}
-		if err := s.repository.CreateTask(r.Context(), task); err != nil {
+		clearRevision := signals.TaskDraftRevision + 1
+		if err := s.repository.CreateTask(
+			r.Context(), task, draftOwner(sid), signals.TabID, clearRevision,
+		); err != nil {
 			s.commandError(w, r, err)
 			return
 		}
 		s.patchSignals(w, r, map[string]any{
 			"taskTitle": "", "taskDue": "", "taskPriority": "routine",
-			"_error": "", "_flash": "Task created.",
+			"taskDraftRevision": clearRevision,
+			"_error":            "", "_flash": "Task created.",
 		})
 
 	case "toggle-task":
@@ -428,6 +480,11 @@ func validUUID(value string) bool {
 	}
 	_, err := hex.DecodeString(strings.ReplaceAll(value, "-", ""))
 	return err == nil
+}
+
+func draftOwner(sessionID string) []byte {
+	digest := sha256.Sum256([]byte("patient-dashboard/task-draft/v1\x00" + sessionID))
+	return digest[:]
 }
 
 func shortDigest(value string) []byte {

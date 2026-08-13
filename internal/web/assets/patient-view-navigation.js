@@ -1,6 +1,7 @@
 // @ts-check
 
 import { patientSearchURL } from './patient-view-policy.js'
+import { flushTaskDraft } from './task-draft.js'
 
 const patientNavigationSelector = 'a[data-patient-navigation]'
 const patientSearchSelector = 'form[data-patient-search]'
@@ -63,8 +64,10 @@ function cancelPatientSearch() {
 
 /** @param {HTMLAnchorElement} link */
 function navigateToPatientView(link) {
-  // A debounce scheduled from the previous patient list must never overwrite
-  // an explicit patient choice after the pointer is pressed.
+  // Flush the old patient's draft before changing task context. A debounce
+  // scheduled from the previous patient list must never overwrite the newer
+  // choice after the pointer is pressed.
+  flushTaskDraft()
   cancelPatientSearch()
   dispatchPatientURL('patient-navigation', new URL(link.href, document.baseURI))
 }
@@ -80,6 +83,7 @@ function stringFormValue(data, name) {
 
 /** @param {HTMLFormElement} form */
 function navigateToPatientSearch(form) {
+  flushTaskDraft()
   const data = new FormData(form)
   const url = patientSearchURL(form.action, {
     search: stringFormValue(data, 'q'),
@@ -130,3 +134,6 @@ document.addEventListener('submit', (event) => {
   cancelPatientSearch()
   navigateToPatientSearch(event.target)
 })
+
+// Capture runs before Datastar's bubbling popstate handler clears task signals.
+window.addEventListener('popstate', flushTaskDraft, { capture: true })

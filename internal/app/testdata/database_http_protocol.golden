@@ -15,6 +15,14 @@ search created patient
   patients in view: 1
   task context: empty
   generated ID version: 7
+save task draft
+  protocol: HTTP/2.0
+  status: 204 No Content
+load task draft
+  protocol: HTTP/2.0
+  status: 200 OK
+  event: datastar-patch-elements
+  title: Review protocol snapshot
 create task
   protocol: HTTP/2.0
   status: 200 OK

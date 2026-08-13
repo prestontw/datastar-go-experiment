@@ -154,7 +154,16 @@
         <a href="/patients?patient={{.ID}}&amp;status=done&amp;q={{$.Query.Search | urlquery}}" data-patient-navigation {{if eq $.Query.Status "done"}}aria-current="true"{{end}}>Completed</a>
         <a href="/patients?patient={{.ID}}&amp;status=all&amp;q={{$.Query.Search | urlquery}}" data-patient-navigation {{if eq $.Query.Status "all"}}aria-current="true"{{end}}>All</a>
       </nav>
-      <form id="create-task-form" class="task-form" data-on:submit="@post('/commands?command=create-task&amp;patient={{.ID}}')">
+      <div id="task-draft-signals"
+           hidden
+           data-signals:_server-task-draft='{{$.DraftSignals}}'
+           data-effect="if ($_draftPatientId !== $_serverTaskDraft.patientId) { $_draftPatientId = $_serverTaskDraft.patientId; $taskTitle = $_serverTaskDraft.title; $taskDue = $_serverTaskDraft.due; $taskPriority = $_serverTaskDraft.priority; $taskDraftRevision = $_serverTaskDraft.revision }"></div>
+      <form id="create-task-form"
+            class="task-form"
+            data-task-draft
+            data-on:input="$taskDraftRevision = $taskDraftRevision + 1"
+            data-on:task-draft-save="@post('/commands?command=save-task-draft&amp;patient={{.ID}}')"
+            data-on:submit="@post('/commands?command=create-task&amp;patient={{.ID}}')">
         <label>Task<input id="task-title" data-bind:task-title maxlength="180" placeholder="Add a care task…" required></label>
         <label>Due date<input id="task-due" type="date" data-bind:task-due required></label>
         <label>Priority<select id="task-priority" data-bind:task-priority><option value="routine">Routine</option><option value="important">Important</option><option value="urgent">Urgent</option></select></label>

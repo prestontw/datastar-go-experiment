@@ -28,7 +28,8 @@ type ShellData struct {
 
 type DashboardData struct {
 	domain.DashboardSnapshot
-	Today time.Time
+	DraftSignals string
+	Today        time.Time
 }
 
 type DueData struct {
@@ -55,15 +56,17 @@ func NewRenderer() (*Renderer, error) {
 
 func (r *Renderer) Shell(title, page string) (string, error) {
 	signals, err := json.Marshal(map[string]any{
-		"patientName":     "",
-		"patientDob":      "",
-		"patientPronouns": "",
-		"patientCareTeam": "",
-		"taskTitle":       "",
-		"taskDue":         "",
-		"taskPriority":    "routine",
-		"_flash":          "",
-		"_error":          "",
+		"patientName":       "",
+		"patientDob":        "",
+		"patientPronouns":   "",
+		"patientCareTeam":   "",
+		"taskTitle":         "",
+		"taskDue":           "",
+		"taskPriority":      "routine",
+		"taskDraftRevision": 0,
+		"_draftPatientId":   "",
+		"_flash":            "",
+		"_error":            "",
 	})
 	if err != nil {
 		return "", fmt.Errorf("marshal initial signals: %w", err)
@@ -72,7 +75,25 @@ func (r *Renderer) Shell(title, page string) (string, error) {
 }
 
 func (r *Renderer) Dashboard(snapshot domain.DashboardSnapshot, today time.Time) (string, error) {
-	return r.execute("dashboard-view", DashboardData{DashboardSnapshot: snapshot, Today: today})
+	draft := snapshot.TaskDraft
+	if draft.Priority == "" {
+		draft.Priority = "routine"
+	}
+	draftSignals, err := json.Marshal(map[string]any{
+		"patientId": draft.PatientID,
+		"title":     draft.Title,
+		"due":       draft.DueDate,
+		"priority":  draft.Priority,
+		"revision":  draft.Revision,
+	})
+	if err != nil {
+		return "", fmt.Errorf("marshal task draft signals: %w", err)
+	}
+	return r.execute("dashboard-view", DashboardData{
+		DashboardSnapshot: snapshot,
+		DraftSignals:      string(draftSignals),
+		Today:             today,
+	})
 }
 
 func (r *Renderer) Due(snapshot domain.DueSnapshot, today time.Time) (string, error) {

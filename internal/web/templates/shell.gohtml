@@ -7,6 +7,7 @@
   <title>{{.Title}} · Northstar Practice</title>
   <script type="module" defer src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.2/bundles/datastar.js" integrity="sha384-SnyFlWTdFL3c8+9/1WsPuMFBq6AQOGC1LmS9upY4YkM3En3wZr5q2UvydHaMgOVG" crossorigin="anonymous"></script>
   <script type="module" defer src="/assets/patient-avatar.js"></script>
+  <script type="module" defer src="/assets/task-draft.js"></script>
   <script type="module" defer src="/assets/patient-view-navigation.js"></script>
   <style>
     :root {
@@ -64,13 +65,13 @@
     </nav>
     <span class="environment">Synthetic demo data</span>
   </header>
-  <div id="session-signals" hidden data-signals='{{.Signals}}' data-signals:csrf="document.cookie.match(/(?:^|; )__Host-csrf=([^;]+)/)?.[1] || ''" data-signals:tab-id="self.crypto.randomUUID()" data-signals:_page-url="window.location.pathname + window.location.search" data-signals:_page-stream-revision="0"></div>
+  <div id="session-signals" hidden data-signals='{{.Signals}}' data-signals:csrf="document.cookie.match(/(?:^|; )__Host-csrf=([^;]+)/)?.[1] || ''" data-signals:tab-id="sessionStorage.patientDashboardTabId || (sessionStorage.patientDashboardTabId = self.crypto.randomUUID())" data-signals:_page-url="window.location.pathname + window.location.search" data-signals:_page-stream-revision="0"></div>
   <div id="page-stream"
        data-effect="$_pageStreamRevision; @post($_pageUrl, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"
        data-on:online__window="$_pageStreamRevision = $_pageStreamRevision + 1"
-       data-on:patient-navigation__window="history.pushState({}, '', evt.detail); $patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_flash = ''; $_error = ''; $_pageUrl = evt.detail"
-       data-on:patient-search__window="history.replaceState({}, '', evt.detail); $patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_flash = ''; $_error = ''; $_pageUrl = evt.detail"
-       data-on:popstate__window="$patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_flash = ''; $_error = ''; $_pageUrl = window.location.pathname + window.location.search"></div>
+       data-on:patient-navigation__window="history.pushState({}, '', evt.detail); $patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_draftPatientId = ''; $_flash = ''; $_error = ''; $_pageUrl = evt.detail"
+       data-on:patient-search__window="history.replaceState({}, '', evt.detail); $patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_draftPatientId = ''; $_flash = ''; $_error = ''; $_pageUrl = evt.detail"
+       data-on:popstate__window="$patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_draftPatientId = ''; $_flash = ''; $_error = ''; $_pageUrl = window.location.pathname + window.location.search"></div>
   <noscript><p class="noscript">This demonstration needs JavaScript to establish its Datastar update stream.</p></noscript>
   <main id="morph" aria-live="polite"></main>
 </body>

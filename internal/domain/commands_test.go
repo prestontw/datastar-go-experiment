@@ -29,6 +29,20 @@ func TestPreparePatientRejectsFutureBirthDate(t *testing.T) {
 	}
 }
 
+func TestPrepareTaskDraftAllowsIncompleteInput(t *testing.T) {
+	draft, err := PrepareTaskDraft(SaveTaskDraftInput{
+		PatientID: "patient-id",
+		Title:     " Call patient ",
+		Revision:  3,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if draft.Title != " Call patient " || draft.Priority != "routine" || draft.Revision != 3 {
+		t.Fatalf("PrepareTaskDraft() = %#v", draft)
+	}
+}
+
 func TestPrepareTaskDefaultsPriority(t *testing.T) {
 	task, err := PrepareTask(CreateTaskInput{PatientID: "patient-id", Title: " Call patient ", DueDate: "2026-08-12"}, "task-id")
 	if err != nil {

@@ -22,6 +22,14 @@ type CreateTaskInput struct {
 	Priority  string
 }
 
+type SaveTaskDraftInput struct {
+	PatientID string
+	Title     string
+	DueDate   string
+	Priority  string
+	Revision  int64
+}
+
 // PreparePatient is part of the functional core: all values and coeffects are
 // supplied by the caller, and the result only describes the desired write.
 func PreparePatient(input CreatePatientInput, id string, today time.Time) (NewPatient, error) {
@@ -50,6 +58,40 @@ func PreparePatient(input CreatePatientInput, id string, today time.Time) (NewPa
 		DateOfBirth: dateOfBirth,
 		Pronouns:    pronouns,
 		CareTeam:    careTeam,
+	}, nil
+}
+
+// PrepareTaskDraft preserves partial user input while enforcing the database's
+// bounded shape. Drafts are intentionally allowed to be incomplete.
+func PrepareTaskDraft(input SaveTaskDraftInput) (TaskDraft, error) {
+	if strings.TrimSpace(input.PatientID) == "" {
+		return TaskDraft{}, errors.Join(ErrInvalidCommand, errors.New("a patient is required"))
+	}
+	if len(input.Title) > 180 {
+		return TaskDraft{}, errors.Join(ErrInvalidCommand, errors.New("task title must be 180 characters or fewer"))
+	}
+	if input.DueDate != "" {
+		if _, err := time.Parse(time.DateOnly, input.DueDate); err != nil {
+			return TaskDraft{}, errors.Join(ErrInvalidCommand, errors.New("draft due date is invalid"))
+		}
+	}
+	priority := strings.ToLower(strings.TrimSpace(input.Priority))
+	switch priority {
+	case "routine", "important", "urgent":
+	case "":
+		priority = "routine"
+	default:
+		return TaskDraft{}, errors.Join(ErrInvalidCommand, errors.New("priority is not recognized"))
+	}
+	if input.Revision < 0 {
+		return TaskDraft{}, errors.Join(ErrInvalidCommand, errors.New("draft revision is invalid"))
+	}
+	return TaskDraft{
+		PatientID: input.PatientID,
+		Title:     input.Title,
+		DueDate:   input.DueDate,
+		Priority:  priority,
+		Revision:  input.Revision,
 	}, nil
 }
 

@@ -242,13 +242,72 @@ func (s *Store) CreatePatient(ctx context.Context, patient domain.NewPatient) er
 	return nil
 }
 
-func (s *Store) CreateTask(ctx context.Context, task domain.NewTask) error {
+func (s *Store) TaskDraft(ctx context.Context, ownerHash []byte, tabID, patientID string) (domain.TaskDraft, error) {
+	draft := domain.TaskDraft{PatientID: patientID, Priority: "routine"}
+	err := s.db.QueryRowContext(ctx, `
+		SELECT title, COALESCE(due_date::text, ''), priority, revision
+		FROM task_drafts
+		WHERE session_id_hash = $1 AND tab_id = $2 AND patient_id = $3`,
+		ownerHash, tabID, patientID,
+	).Scan(&draft.Title, &draft.DueDate, &draft.Priority, &draft.Revision)
+	if errors.Is(err, sql.ErrNoRows) {
+		return draft, nil
+	}
+	if err != nil {
+		return domain.TaskDraft{}, fmt.Errorf("query task draft: %w", err)
+	}
+	return draft, nil
+}
+
+func (s *Store) SaveTaskDraft(ctx context.Context, ownerHash []byte, tabID string, draft domain.TaskDraft) error {
 	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO task_drafts (
+			session_id_hash, tab_id, patient_id, title, due_date, priority, revision
+		) VALUES ($1, $2, $3, $4, NULLIF($5, '')::date, $6, $7)
+		ON CONFLICT (session_id_hash, tab_id, patient_id) DO UPDATE SET
+			title = EXCLUDED.title,
+			due_date = EXCLUDED.due_date,
+			priority = EXCLUDED.priority,
+			revision = EXCLUDED.revision,
+			updated_at = now()
+		WHERE task_drafts.revision < EXCLUDED.revision`,
+		ownerHash, tabID, draft.PatientID, draft.Title, draft.DueDate, draft.Priority, draft.Revision,
+	)
+	if err != nil {
+		return fmt.Errorf("save task draft: %w", err)
+	}
+	return nil
+}
+
+// CreateTask atomically inserts the task and advances its draft to an empty
+// tombstone. The revision guard prevents an older in-flight autosave from
+// resurrecting text after a successful submission.
+func (s *Store) CreateTask(ctx context.Context, task domain.NewTask, ownerHash []byte, tabID string, clearRevision int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin create task: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO patient_tasks (id, patient_id, title, due_date, priority)
 		VALUES ($1, $2, $3, $4, $5)`,
-		task.ID, task.PatientID, task.Title, task.DueDate, task.Priority)
-	if err != nil {
+		task.ID, task.PatientID, task.Title, task.DueDate, task.Priority); err != nil {
 		return fmt.Errorf("insert task: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO task_drafts (
+			session_id_hash, tab_id, patient_id, title, due_date, priority, revision
+		) VALUES ($1, $2, $3, '', NULL, 'routine', $4)
+		ON CONFLICT (session_id_hash, tab_id, patient_id) DO UPDATE SET
+			title = '', due_date = NULL, priority = 'routine',
+			revision = GREATEST(task_drafts.revision, EXCLUDED.revision),
+			updated_at = now()`,
+		ownerHash, tabID, task.PatientID, clearRevision); err != nil {
+		return fmt.Errorf("clear task draft: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit create task: %w", err)
 	}
 	return nil
 }

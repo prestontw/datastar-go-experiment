@@ -10,7 +10,7 @@ A small patient-practice dashboard built with Go’s standard HTTP server, route
 - A genuinely separate practice-wide page at `/tasks/due?window=14`.
 - Debounced interactive patient search and selected-patient/status query parameters.
 - No-flash, history-aware in-place morphs beginning on mouse down between patient/status views, with native and keyboard fallback.
-- Patient creation, task creation, and task completion commands.
+- Patient creation, task creation/completion, and durable per-tab/per-patient task drafts.
 - Multiplayer updates between clients—even when they are on different routes or query-param views.
 - Full `<main>` morphs over throttled, compressed SSE rather than endpoint-specific fragments.
 - PostgreSQL `NOTIFY` events emitted after commits.
@@ -100,7 +100,7 @@ Migration SQL lives in `internal/postgres/migrations/` and is embedded in the se
 4. Verifies the SHA-256 checksum of every previously applied file and refuses edited history or a database newer than the binary.
 5. Applies all pending migrations and ledger entries in one transaction. A failure rolls the entire migration attempt back and prevents the HTTPS server from starting.
 
-`001_init.sql` defines native `UUID` primary keys with `DEFAULT uuidv7()`. Application commands request IDs from PostgreSQL as explicit coeffects before preparing inserts, so all newly created patient/task IDs are v7 while command functions remain deterministic. Deterministic synthetic fixtures are also valid v7 values. `001_init.sql` is idempotent within a PostgreSQL 18 database; after it is recorded it is skipped. Add future changes as `002_description.sql`, `003_description.sql`, and so on—never edit an applied file.
+`001_init.sql` defines native `UUID` primary keys with `DEFAULT uuidv7()`. Application commands request IDs from PostgreSQL as explicit coeffects before preparing inserts, so all newly created patient/task IDs are v7 while command functions remain deterministic. Deterministic synthetic fixtures are also valid v7 values. `002_task_drafts.sql` adds private per-session/tab/patient drafts. Applied files are recorded and skipped; add future changes as the next numbered migration and never edit an applied file.
 
 The PostgreSQL 18 upgrade intentionally starts clean rather than performing `pg_upgrade`: Nix uses a new `postgres-18` data directory and Compose uses a new `postgres-18-data` volume. The obsolete Nix 17 cluster in the primary VM was stopped and removed during this change. On a Mac that previously ran this project, the old unreferenced volume may be deleted with `docker volume rm patient-dashboard_postgres-data` after stopping the old stack. During local development, an intentional rewrite of one database’s migration history requires naming it explicitly, for example `just infra-reset patient_dashboard_agent_a`. This force-drops and recreates only that logical database; it never stops the selected PostgreSQL process or removes its data directory/volume.
 
@@ -147,7 +147,7 @@ just test-integration
 
 Integration tests use the real `lib/pq` store and follow the “Zero to Production” isolation pattern. For every test, the harness connects to the selected shared PostgreSQL administrative database, creates a uniquely named empty database, invokes the production `Store.Migrate`, exercises behavior, and force-drops the database during cleanup. This ensures tests cannot accidentally rely on a developer’s schema or seed state. Override the administrative connection with `TEST_DATABASE_URL`; its database component is replaced for each fixture.
 
-`TestDatabaseBackedHTTPProtocol` composes those real migrations and store operations with the browserless TLS/HTTP2 client. It creates a patient and task through authenticated HTTP commands, reads each back through Datastar SSE views, and compares a normalized wire transcript at `internal/app/testdata/database_http_protocol.golden`. Dynamic UUID and security-token values are reduced to stable contract facts such as UUID version, cookie names, event types, statuses, and persisted labels. After intentionally reviewing a protocol change, update it with:
+`TestDatabaseBackedHTTPProtocol` composes those real migrations and store operations with the browserless TLS/HTTP2 client. It creates a patient, saves its task draft, and creates the task through authenticated HTTP commands; reads each state back through Datastar SSE views; and compares a normalized wire transcript at `internal/app/testdata/database_http_protocol.golden`. Dynamic UUID and security-token values are reduced to stable contract facts such as UUID version, cookie names, event types, statuses, and persisted labels. After intentionally reviewing a protocol change, update it with:
 
 ```sh
 UPDATE_SNAPSHOTS=1 just test-integration
@@ -167,7 +167,7 @@ This gives regression flows a faster Go-native home while Playwright remains res
 | `POST` | `/patients?...` | Long-lived Datastar render stream for that exact view |
 | `GET` | `/tasks/due?window=7` | Static second-page shim |
 | `POST` | `/tasks/due?window=7` | Long-lived render stream for the due-task view |
-| `POST` | `/commands?command=...` | CQRS command boundary; may patch ephemeral signals only |
+| `POST` | `/commands?command=...` | CQRS command boundary for records and private drafts |
 | `GET` | `/healthz` | PostgreSQL readiness |
 
 There is one URL per page. The GET/POST pair avoids separate “initial page” and “updates” URLs while preserving HTTP semantics for the static shim and Datastar stream.
@@ -189,7 +189,11 @@ The transition policy is explicit and executable:
 
 The checked controller and its pure policy are embedded same-origin JavaScript modules and add no package, build step, or framework infrastructure. The `/assets/{name}` handler serves any existing `.js` file embedded from `internal/web/assets/*.js`, while rejecting other extensions and missing files; adding another checked JavaScript asset does not require editing a server allowlist. Links between Patients and Due tasks remain native because they cross page renderers and scoped styles. Explicit opt-in is safer and smaller than globally hijacking all links.
 
-Same-page navigation currently clears incomplete create-patient and create-task form signals, preventing a task draft from following the user to a different patient. Future work is to persist drafts per author/tab and subject—especially new-task drafts keyed by patient—restore them on return, show age/ownership, and clean them up after submission or retention expiry.
+New-task drafts are durable, private working state rather than shared practice records. The browser keeps a random tab identity in `sessionStorage`; PostgreSQL keys each draft by a domain-separated hash of the secure session ID, that tab UUID, and patient UUID. Input changes advance a revision and are saved after a 500 ms quiet period. Patient/search/history navigation flushes a pending save before changing context, and hiding the tab attempts the same on a best-effort basis. The draft table intentionally emits no practice-wide `NOTIFY` event.
+
+On return, the server includes the selected patient's draft in the authoritative render. A patient guard hydrates Datastar task signals only when task context changes, so an unrelated realtime morph for the same patient cannot replace actively typed local values with an older database snapshot. Navigating still clears the old task signals immediately, preventing one patient's title from appearing under another while the replacement stream arrives.
+
+Creating a task and clearing its draft happen in one PostgreSQL transaction. Draft saves carry monotonically increasing per-tab revisions; task creation writes an empty tombstone at the next revision, so an autosave already in flight cannot resurrect submitted text. After the command commits, Datastar clears title, date, and priority signals. This is deliberately paper-like best effort, not a claim of synchronous keystroke durability: a browser or network can disappear before the debounce/flush request completes. Session loss can also leave an unreachable draft row; retention cleanup and saved-age UI are future operational refinements.
 
 ## Architecture in brief
 
@@ -213,7 +217,7 @@ browser route + query + ephemeral signals
        throttled Datastar SSE main morph
 ```
 
-A page render obtains a repeatable-read value snapshot and passes it to one top-level template. Every committed patient/task write emits the same kind of invalidation event. Each connection can therefore drop intermediate events, throttle to at most one render per 100 ms, and always query the latest state without replaying deltas.
+A patient render obtains a repeatable-read shared-practice snapshot plus the selected tab's private draft and passes those values to one top-level template. Every committed patient/task write emits the same kind of invalidation event. Each connection can therefore drop intermediate events, throttle to at most one render per 100 ms, and always query the latest state without replaying deltas.
 
 The implementation is split into a functional core (`internal/domain`) and an imperative shell (`internal/app`, `internal/postgres`). Redis is deliberately omitted until ephemeral state must survive one process or be shared by replicas.
 
