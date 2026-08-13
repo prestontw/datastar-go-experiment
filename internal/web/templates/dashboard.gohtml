@@ -102,8 +102,8 @@
     <aside class="patients-pane">
       <header class="pane-header">
         <div class="pane-title-row"><h2>Patients</h2><span class="count">{{len .Patients}} in view</span></div>
-        <form class="search" method="get" action="/patients">
-          <input id="patient-search" type="search" name="q" value="{{.Query.Search}}" aria-label="Search patients" placeholder="Search patients…">
+        <form class="search" method="get" action="/patients" data-patient-search>
+          <input id="patient-search" type="search" name="q" value="{{.Query.Search}}" aria-label="Search patients" placeholder="Search patients…" autocomplete="off">
           <input type="hidden" name="status" value="{{.Query.Status}}">
           <button class="button secondary" type="submit">Search</button>
         </form>

@@ -66,6 +66,33 @@ test('morphs between patient views without replacing the document', async ({ pag
   await expect(page.getByText(taskTitle, { exact: true })).toBeVisible()
 })
 
+test('debounces interactive patient search until typing pauses', async ({ page }) => {
+  await page.goto('/patients')
+  await expect(page.getByRole('heading', { name: 'Patient dashboard' })).toBeVisible()
+
+  const searchRequests: string[] = []
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+    if (request.method() === 'POST' && url.pathname === '/patients' && url.searchParams.has('q')) {
+      searchRequests.push(url.searchParams.get('q') ?? '')
+    }
+  })
+
+  const search = page.getByRole('searchbox', { name: 'Search patients' })
+  await search.focus()
+  for (const character of 'Noor') {
+    await page.keyboard.type(character)
+    await page.waitForTimeout(150)
+    expect(searchRequests).toHaveLength(0)
+  }
+
+  await expect.poll(() => searchRequests).toEqual(['Noor'])
+  await expect(page).toHaveURL(/\/patients\?q=Noor&status=open$/)
+  await expect(page.locator('a.patient-link')).toHaveCount(1)
+  await expect(page.getByRole('heading', { name: 'Noor Ahmed' })).toBeVisible()
+  await expect(search).toHaveValue('Noor')
+})
+
 test('creates a patient and rejects a forged command', async ({ page }) => {
   await page.goto('/patients')
 

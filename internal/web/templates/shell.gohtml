@@ -69,6 +69,7 @@
        data-effect="$_pageStreamRevision; @post($_pageUrl, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"
        data-on:online__window="$_pageStreamRevision = $_pageStreamRevision + 1"
        data-on:patient-navigation__window="history.pushState({}, '', evt.detail); $patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_flash = ''; $_error = ''; $_pageUrl = evt.detail"
+       data-on:patient-search__window="history.replaceState({}, '', evt.detail); $patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_flash = ''; $_error = ''; $_pageUrl = evt.detail"
        data-on:popstate__window="$patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_flash = ''; $_error = ''; $_pageUrl = window.location.pathname + window.location.search"></div>
   <noscript><p class="noscript">This demonstration needs JavaScript to establish its Datastar update stream.</p></noscript>
   <main id="morph" aria-live="polite"></main>

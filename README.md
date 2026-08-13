@@ -8,7 +8,7 @@ A small patient-practice dashboard built with Go’s standard HTTP server, route
 
 - A two-pane patient/task workspace at `/patients`.
 - A genuinely separate practice-wide page at `/tasks/due?window=14`.
-- Patient search and selected-patient/status query parameters.
+- Debounced interactive patient search and selected-patient/status query parameters.
 - No-flash, history-aware in-place morphs beginning on mouse down between patient/status views, with native and keyboard fallback.
 - Patient creation, task creation, and task completion commands.
 - Multiplayer updates between clients—even when they are on different routes or query-param views.
@@ -163,6 +163,8 @@ Integration tests use the real `lib/pq` store and follow the “Zero to Producti
 There is one URL per page. The GET/POST pair avoids separate “initial page” and “updates” URLs while preserving HTTP semantics for the static shim and Datastar stream.
 
 Patient and status links keep canonical query-string URLs but are progressively enhanced. A small checked, dependency-free utility (`internal/web/assets/patient-navigation.js`) delegates `mousedown` and `click` handling for links marked only with `data-patient-navigation`. Plain primary-button navigation begins on mouse down; the later click is suppressed. Keyboard/synthetic clicks use the click fallback, while Command/Ctrl/Shift/Alt clicks, non-primary buttons, downloads, and alternate targets retain native behavior. The utility emits one event to the stable Datastar stream controller, which keeps the current dashboard visible and updates browser history. A single reactive stream effect owns every patient-page request: changing its canonical URL cancels the prior stream before opening the replacement, preventing stale URL subscriptions from morphing the view after a task write. Back/forward repeats the stream transition; without JavaScript, the same `href` performs ordinary navigation.
+
+The same utility progressively enhances the GET search form. Input is debounced for 300 ms, so no search request starts while keystrokes continue inside that quiet window; pausing opens one replacement stream, keeps the input focused, morphs the matching patient view, and uses `history.replaceState` so incremental queries do not flood browser history. Explicit form submission runs immediately, and the ordinary GET form remains the no-JavaScript fallback.
 
 This adds one embedded same-origin JavaScript asset and no package, build step, or framework infrastructure. Links between Patients and Due tasks remain native because they cross page renderers and scoped styles. Explicit opt-in is safer and smaller than globally hijacking all links.
 

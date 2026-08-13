@@ -86,8 +86,12 @@ func TestServesCheckedPatientNavigationUtility(t *testing.T) {
 	if got := response.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/javascript") {
 		t.Fatalf("Content-Type = %q", got)
 	}
-	if !strings.Contains(response.Body.String(), "mousedown") || !strings.Contains(response.Body.String(), "data-patient-navigation") {
+	asset := response.Body.String()
+	if !strings.Contains(asset, "mousedown") || !strings.Contains(asset, "data-patient-navigation") {
 		t.Fatal("navigation utility does not contain delegated mousedown behavior")
+	}
+	if !strings.Contains(asset, "patientSearchDelay = 300") || !strings.Contains(asset, "data-patient-search") {
+		t.Fatal("navigation utility does not contain delegated debounced search behavior")
 	}
 }
 
