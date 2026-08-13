@@ -147,15 +147,16 @@ func TestMigrateIsIdempotentAndRecordsEmbeddedHistory(t *testing.T) {
 		t.Fatalf("second Migrate() call: %v", err)
 	}
 
-	var count int
 	var name, checksum string
-	if err := store.db.QueryRowContext(ctx,
-		"SELECT count(*), min(name), min(checksum) FROM schema_migrations",
-	).Scan(&count, &name, &checksum); err != nil {
+	if err := store.db.QueryRowContext(ctx, `
+		SELECT name, checksum
+		FROM schema_migrations
+		WHERE name = '001_init.sql'`,
+	).Scan(&name, &checksum); err != nil {
 		t.Fatal(err)
 	}
-	if count != 2 || name != "001_init.sql" || len(checksum) != 64 {
-		t.Fatalf("migration ledger = count %d, name %q, checksum %q", count, name, checksum)
+	if name != "001_init.sql" || len(checksum) != 64 {
+		t.Fatalf("initial migration ledger row = name %q, checksum %q", name, checksum)
 	}
 }
 

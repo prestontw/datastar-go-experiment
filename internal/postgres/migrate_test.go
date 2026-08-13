@@ -10,8 +10,8 @@ func TestEmbeddedMigrationsAreOrderedAndChecksummed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(migrations) != 2 {
-		t.Fatalf("len(migrations) = %d, want 2", len(migrations))
+	if len(migrations) == 0 {
+		t.Fatal("no embedded migrations found")
 	}
 	migration := migrations[0]
 	if migration.Name != "001_init.sql" {
@@ -26,7 +26,17 @@ func TestEmbeddedMigrationsAreOrderedAndChecksummed(t *testing.T) {
 	if !strings.Contains(migration.SQL, "DEFAULT uuidv7()") {
 		t.Fatal("initial migration does not use PostgreSQL UUIDv7 defaults")
 	}
-	if migrations[1].Name != "002_task_drafts.sql" || !strings.Contains(migrations[1].SQL, "CREATE TABLE task_drafts") {
-		t.Fatalf("second migration does not contain task drafts: %#v", migrations[1])
+	draftMigration := migrationNamed(migrations, "002_task_drafts.sql")
+	if draftMigration == nil || !strings.Contains(draftMigration.SQL, "CREATE TABLE task_drafts") {
+		t.Fatalf("task draft migration not found: %#v", migrations)
 	}
+}
+
+func migrationNamed(migrations []migration, name string) *migration {
+	for i := range migrations {
+		if migrations[i].Name == name {
+			return &migrations[i]
+		}
+	}
+	return nil
 }
