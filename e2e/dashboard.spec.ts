@@ -18,6 +18,32 @@ test('serves the patient page over HTTP/2 and upgrades the Web Component', async
   await expect.poll(() => avatar.evaluate((element) => element.shadowRoot?.textContent?.includes('EB'))).toBe(true)
 })
 
+test('morphs between patient views without replacing the document', async ({ page }) => {
+  await page.goto('/patients?patient=10000000-0000-4000-8000-000000000002&status=open')
+  await expect(page.getByRole('heading', { name: 'Elias Brooks' })).toBeVisible()
+
+  const documentIdentity = await page.evaluate(() => {
+    const identity = crypto.randomUUID()
+    ;(window as typeof window & { __documentIdentity?: string }).__documentIdentity = identity
+    return identity
+  })
+  await page.getByLabel('Task', { exact: true }).fill('Unsaved task draft')
+  await page.locator('a.patient-link', { hasText: 'Maya Chen' }).click()
+
+  await expect(page).toHaveURL(/\/patients\?patient=10000000-0000-4000-8000-000000000001&status=open/)
+  await expect(page.getByRole('heading', { name: 'Maya Chen' })).toBeVisible()
+  await expect(page.getByLabel('Task', { exact: true })).toHaveValue('')
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __documentIdentity?: string }
+  ).__documentIdentity)).toBe(documentIdentity)
+
+  await page.goBack()
+  await expect(page.getByRole('heading', { name: 'Elias Brooks' })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __documentIdentity?: string }
+  ).__documentIdentity)).toBe(documentIdentity)
+})
+
 test('creates a patient and rejects a forged command', async ({ page }) => {
   await page.goto('/patients')
 

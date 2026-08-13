@@ -58,13 +58,17 @@
   <header class="site-header">
     <a class="brand" href="/patients"><span class="brand-mark" aria-hidden="true">✦</span> Northstar Practice</a>
     <nav class="site-nav" aria-label="Primary navigation">
-      <a href="/patients" {{if eq .Page "patients"}}aria-current="page"{{end}}>Patients</a>
+      <a href="/patients" {{if eq .Page "patients"}}aria-current="page" data-on:click="evt.button === 0 && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && (evt.preventDefault(), window.dispatchEvent(new CustomEvent('patient-navigation', {detail: el.getAttribute('href')})))"{{end}}>Patients</a>
       <a href="/tasks/due?window=14" {{if eq .Page "due"}}aria-current="page"{{end}}>Due tasks</a>
     </nav>
     <span class="environment">Synthetic demo data</span>
   </header>
   <div id="session-signals" hidden data-signals='{{.Signals}}' data-signals:csrf="document.cookie.match(/(?:^|; )__Host-csrf=([^;]+)/)?.[1] || ''" data-signals:tab-id="self.crypto.randomUUID()"></div>
-  <div data-init="@post(window.location.pathname + window.location.search, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})" data-on:online__window="@post(window.location.pathname + window.location.search, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"></div>
+  <div id="page-stream"
+       data-init="@post(window.location.pathname + window.location.search, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"
+       data-on:online__window="@post(window.location.pathname + window.location.search, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"
+       data-on:patient-navigation__window="history.pushState({}, '', evt.detail); $patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_flash = ''; $_error = ''; @post(evt.detail, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"
+       data-on:popstate__window="$patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_flash = ''; $_error = ''; @post(window.location.pathname + window.location.search, {retryMaxCount: Infinity, openWhenHidden: false, retry: 'error', requestCancellation: 'cleanup'})"></div>
   <noscript><p class="noscript">This demonstration needs JavaScript to establish its Datastar update stream.</p></noscript>
   <main id="morph" aria-live="polite"></main>
 </body>

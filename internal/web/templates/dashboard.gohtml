@@ -113,7 +113,7 @@
       <ul class="patient-list">
         {{range .Patients}}
         <li>
-          <a class="patient-link" href="/patients?patient={{.ID}}&amp;status={{$.Query.Status}}&amp;q={{$.Query.Search | urlquery}}" {{if selected $.SelectedPatient .ID}}aria-current="true"{{end}}>
+          <a class="patient-link" href="/patients?patient={{.ID}}&amp;status={{$.Query.Status}}&amp;q={{$.Query.Search | urlquery}}" data-on:click="evt.button === 0 && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && (evt.preventDefault(), window.dispatchEvent(new CustomEvent('patient-navigation', {detail: el.getAttribute('href')})))" {{if selected $.SelectedPatient .ID}}aria-current="true"{{end}}>
             <patient-avatar initials="{{initials .Name}}" tone="{{tone .ID}}" aria-hidden="true"></patient-avatar>
             <span><span class="patient-name">{{.Name}}</span><span class="patient-meta">{{.Pronouns}}{{if and .Pronouns .CareTeam}} · {{end}}{{.CareTeam}}</span></span>
             <span class="task-count" title="Open tasks">{{.OpenTasks}}</span>
@@ -149,9 +149,9 @@
         <span class="count">{{.OpenTasks}} open · {{.TotalTasks}} total</span>
       </header>
       <nav class="filters" aria-label="Task status">
-        <a href="/patients?patient={{.ID}}&amp;status=open&amp;q={{$.Query.Search | urlquery}}" {{if eq $.Query.Status "open"}}aria-current="true"{{end}}>Open</a>
-        <a href="/patients?patient={{.ID}}&amp;status=done&amp;q={{$.Query.Search | urlquery}}" {{if eq $.Query.Status "done"}}aria-current="true"{{end}}>Completed</a>
-        <a href="/patients?patient={{.ID}}&amp;status=all&amp;q={{$.Query.Search | urlquery}}" {{if eq $.Query.Status "all"}}aria-current="true"{{end}}>All</a>
+        <a href="/patients?patient={{.ID}}&amp;status=open&amp;q={{$.Query.Search | urlquery}}" data-on:click="evt.button === 0 && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && (evt.preventDefault(), window.dispatchEvent(new CustomEvent('patient-navigation', {detail: el.getAttribute('href')})))" {{if eq $.Query.Status "open"}}aria-current="true"{{end}}>Open</a>
+        <a href="/patients?patient={{.ID}}&amp;status=done&amp;q={{$.Query.Search | urlquery}}" data-on:click="evt.button === 0 && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && (evt.preventDefault(), window.dispatchEvent(new CustomEvent('patient-navigation', {detail: el.getAttribute('href')})))" {{if eq $.Query.Status "done"}}aria-current="true"{{end}}>Completed</a>
+        <a href="/patients?patient={{.ID}}&amp;status=all&amp;q={{$.Query.Search | urlquery}}" data-on:click="evt.button === 0 && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && (evt.preventDefault(), window.dispatchEvent(new CustomEvent('patient-navigation', {detail: el.getAttribute('href')})))" {{if eq $.Query.Status "all"}}aria-current="true"{{end}}>All</a>
       </nav>
       <form id="create-task-form" class="task-form" data-on:submit="@post('/commands?command=create-task&amp;patient={{.ID}}')">
         <label>Task<input id="task-title" data-bind:task-title maxlength="180" placeholder="Add a care task…" required></label>

@@ -9,6 +9,7 @@ A small patient-practice dashboard built with Go’s standard HTTP server, route
 - A two-pane patient/task workspace at `/patients`.
 - A genuinely separate practice-wide page at `/tasks/due?window=14`.
 - Patient search and selected-patient/status query parameters.
+- No-flash, history-aware in-place morphs between patient/status views, with native link fallback.
 - Patient creation, task creation, and task completion commands.
 - Multiplayer updates between clients—even when they are on different routes or query-param views.
 - Full `<main>` morphs over throttled, compressed SSE rather than endpoint-specific fragments.
@@ -158,6 +159,10 @@ Integration tests use the real `lib/pq` store and follow the “Zero to Producti
 | `GET` | `/healthz` | PostgreSQL readiness |
 
 There is one URL per page. The GET/POST pair avoids separate “initial page” and “updates” URLs while preserving HTTP semantics for the static shim and Datastar stream.
+
+Patient and status links keep canonical query-string URLs but are progressively enhanced. Clicking one keeps the current dashboard visible, updates browser history, cancels the old patient stream, and morphs directly to the first render from the new URL. Back/forward repeats the stream transition; without JavaScript, the same `href` performs ordinary navigation. Links between Patients and Due tasks remain native because they cross page renderers and scoped styles. This explicit opt-in is safer and smaller than globally hijacking all links.
+
+Same-page navigation currently clears incomplete create-patient and create-task form signals, preventing a task draft from following the user to a different patient. Future work is to persist drafts per author/tab and subject—especially new-task drafts keyed by patient—restore them on return, show age/ownership, and clean them up after submission or retention expiry.
 
 ## Architecture in brief
 

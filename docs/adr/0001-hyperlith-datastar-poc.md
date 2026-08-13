@@ -51,7 +51,8 @@ The due-task route is intentionally a second page, not a dashboard partial. It f
 - Initial and subsequent dynamic content share one rendering path.
 - Link previews and clients without JavaScript receive only a shell and no patient data.
 - Query parameters describe views without introducing path hierarchy or path-parameter routing.
-- Navigation currently reloads a shim. This is simple and can be optimized later without changing page semantics.
+- Patient selection and task-status links are progressively enhanced in place. A stable controller outside `<main>` aborts the prior patient render stream, calls `history.pushState`, clears the current create-patient/task draft signals, and opens the same route with the new query string. The previous view remains visible until the first new full-main morph; `popstate` opens the corresponding stream for back/forward. Real `href` values retain native-navigation fallback.
+- Do not globally intercept every link. Crossing between `/patients` and `/tasks/due` remains native navigation because it changes page renderer, stylesheet, title, and primary navigation state; making that persistent would require a broader document/head navigation system. Explicit same-page enhancement is less magic and prevents unrelated links, downloads, external URLs, modified clicks, and future controls from being captured accidentally.
 
 ### 3. Apply CQRS and functional-core/imperative-shell boundaries
 
@@ -136,6 +137,8 @@ Attribution and timestamps make the UI honest but do not prevent lost updates; t
 
 This design keeps Hyperlith’s grain: commands remain distinct, the database is authoritative, a commit triggers a fresh render, and drafts remain ephemeral. If server rendering itself must reason about current draft state, promote only the necessary per-tab editing metadata to the existing per-tab state seam (potentially Redis when replicated), not into shared task state.
 
+For the PoC, intentional same-page patient navigation clears incomplete create-patient and create-task signals so a task draft cannot silently move to another patient. Future work should persist drafts per user/tab and form subject: a new-patient draft belongs to its author, while a new-task draft should be keyed by patient and author. Restore drafts when returning, show their saved age/ownership, remove them after successful submission, and define retention/cleanup. PostgreSQL is the default durable home if drafts must survive restarts; Redis is justified only if measured transient-state requirements make it preferable.
+
 ### 9. Terminate trusted TLS directly in the Go process
 
 Local and container execution both call `http.Server.ListenAndServeTLS` with HTTP/1.1 and HTTP/2 explicitly enabled. There is no development-only plaintext path or Docker reverse proxy. Both development workflows use the same host-generated `mkcert` files in `.certs/`: the local Go process reads them directly and Compose bind-mounts them read-only into the unprivileged application container. `scripts/certs.sh` is the common idempotent generation/trust step. Nix supplies `mkcert` on Linux; a non-Nix Mac installs it independently. SSE has no server write timeout; shutdown cancellation closes streams.
@@ -192,3 +195,4 @@ Create a superseding ADR if any of the following occurs: real authentication/PHI
 - **2026-08-12:** Selected one shared Compose PostgreSQL with a logical database and Go HTTPS port per agent worktree. Scoped reset to an explicit database name, guarded shared shutdown, parameterized dev/E2E, and made migration locks database-specific.
 - **2026-08-12:** Reintroduced PostgreSQL as a Nix runtime tool—not a `lib/pq` build dependency—so the Linux VM needs no Docker daemon. Added one shared user-level Nix cluster for all worktrees and removed unused Redis provisioning.
 - **2026-08-12:** Simplified infrastructure selection: `flake.nix` fixes Nix development to Nix PostgreSQL; scripts outside Nix default to Docker for macOS. Removed Docker tooling and the unsupported Docker-on-Linux/Nix configuration path.
+- **2026-08-12:** Added progressive same-page patient/status navigation with URL history and stream replacement, while retaining native cross-page navigation. Current drafts clear on navigation; per-author/per-patient persisted drafts are recorded as future work.
