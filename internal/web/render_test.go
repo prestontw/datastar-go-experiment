@@ -49,4 +49,7 @@ func TestShellReadsCSRFDoubleSubmitCookie(t *testing.T) {
 	if !strings.Contains(shell, "new AbortController()") || strings.Contains(shell, "requestCancellation: 'cleanup'") {
 		t.Fatal("shell does not explicitly own page-stream cancellation")
 	}
+	if !strings.Contains(shell, "data-signals:page-stream-id") || !strings.Contains(shell, "$pageStreamRevision") {
+		t.Fatal("shell does not send server-verifiable page-stream identity")
+	}
 }

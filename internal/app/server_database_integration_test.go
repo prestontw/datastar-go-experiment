@@ -249,7 +249,12 @@ func doProtocolCommand(
 func initialProtocolSSE(t *testing.T, client *http.Client, target, origin, csrf, tabID string) protocolResponse {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	request := browserRequest(t, ctx, target, origin, map[string]any{"csrf": csrf, "tabId": tabID})
+	request := browserRequest(t, ctx, target, origin, map[string]any{
+		"csrf":               csrf,
+		"tabId":              tabID,
+		"pageStreamId":       "019fbd32-0800-7000-8000-000000000004",
+		"pageStreamRevision": 0,
+	})
 	response, err := client.Do(request)
 	if err != nil {
 		cancel()

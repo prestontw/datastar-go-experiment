@@ -40,35 +40,39 @@ type Repository interface {
 }
 
 type Server struct {
-	repository Repository
-	renderer   *webviews.Renderer
-	hub        *realtime.Hub
-	protector  *security.Protector
-	logger     *slog.Logger
-	now        func() time.Time
+	repository  Repository
+	renderer    *webviews.Renderer
+	hub         *realtime.Hub
+	pageStreams *pageStreamRegistry
+	protector   *security.Protector
+	logger      *slog.Logger
+	now         func() time.Time
 }
 
 type Signals struct {
-	CSRF              string `json:"csrf"`
-	TabID             string `json:"tabId"`
-	PatientName       string `json:"patientName"`
-	PatientDOB        string `json:"patientDob"`
-	PatientPronouns   string `json:"patientPronouns"`
-	PatientCareTeam   string `json:"patientCareTeam"`
-	TaskTitle         string `json:"taskTitle"`
-	TaskDue           string `json:"taskDue"`
-	TaskPriority      string `json:"taskPriority"`
-	TaskDraftRevision int64  `json:"taskDraftRevision"`
+	CSRF               string `json:"csrf"`
+	TabID              string `json:"tabId"`
+	PatientName        string `json:"patientName"`
+	PatientDOB         string `json:"patientDob"`
+	PatientPronouns    string `json:"patientPronouns"`
+	PatientCareTeam    string `json:"patientCareTeam"`
+	TaskTitle          string `json:"taskTitle"`
+	TaskDue            string `json:"taskDue"`
+	TaskPriority       string `json:"taskPriority"`
+	TaskDraftRevision  int64  `json:"taskDraftRevision"`
+	PageStreamID       string `json:"pageStreamId"`
+	PageStreamRevision int64  `json:"pageStreamRevision"`
 }
 
 func NewServer(repository Repository, renderer *webviews.Renderer, hub *realtime.Hub, protector *security.Protector, logger *slog.Logger) *Server {
 	return &Server{
-		repository: repository,
-		renderer:   renderer,
-		hub:        hub,
-		protector:  protector,
-		logger:     logger,
-		now:        time.Now,
+		repository:  repository,
+		renderer:    renderer,
+		hub:         hub,
+		pageStreams: newPageStreamRegistry(),
+		protector:   protector,
+		logger:      logger,
+		now:         time.Now,
 	}
 }
 
@@ -178,6 +182,19 @@ func (s *Server) serveUpdates(w http.ResponseWriter, r *http.Request, render fun
 	if !ok {
 		return
 	}
+	if !validUUID(signals.PageStreamID) || signals.PageStreamRevision < 0 {
+		s.validationError(w, r, errors.Join(domain.ErrInvalidCommand, errors.New("page stream identity is invalid")))
+		return
+	}
+	streamKey := string(draftOwner(sid)) + "\x00" + signals.PageStreamID
+	lease, current := s.pageStreams.acquire(r.Context(), streamKey, signals.PageStreamRevision)
+	if !current {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	defer lease.Release()
+	r = r.WithContext(lease.Context())
 
 	events, unsubscribe := s.hub.Subscribe()
 	defer unsubscribe()
@@ -195,6 +212,9 @@ func (s *Server) serveUpdates(w http.ResponseWriter, r *http.Request, render fun
 		datastar.WithBrotli(datastar.WithBrotliLevel(4), datastar.WithBrotliLGWin(18)),
 		datastar.WithGzip(),
 	))
+	if !lease.Current() {
+		return
+	}
 	if err := sse.PatchElements(initialView); err != nil {
 		s.logger.Debug("initial SSE render ended", "error", err, "path", r.URL.Path)
 		return
@@ -221,10 +241,16 @@ func (s *Server) serveUpdates(w http.ResponseWriter, r *http.Request, render fun
 		case <-timerC:
 			timerC = nil
 			timer = nil
+			if !lease.Current() {
+				return
+			}
 			view, err := render(r.Context(), sid, signals)
 			if err != nil {
 				s.logger.Error("realtime page render failed", "error", err, "path", r.URL.Path)
 				continue
+			}
+			if !lease.Current() {
+				return
 			}
 			if err := sse.PatchElements(view); err != nil {
 				s.logger.Debug("SSE connection ended", "error", err, "path", r.URL.Path)

@@ -57,8 +57,12 @@ func TestBrowserlessHTTPProtocol(t *testing.T) {
 	}
 
 	streamContext, cancelStream := context.WithTimeout(context.Background(), 5*time.Second)
+	pageStreamID := "019fbd32-0800-7000-8000-000000000003"
 	streamRequest := browserRequest(t, streamContext, server.URL+"/patients?status=open", server.URL, map[string]any{
-		"csrf": csrf,
+		"csrf":               csrf,
+		"tabId":              "019fbd32-0800-7000-8000-000000000002",
+		"pageStreamId":       pageStreamID,
+		"pageStreamRevision": 1,
 	})
 	streamResponse, err := client.Do(streamRequest)
 	if err != nil {
@@ -78,6 +82,20 @@ func TestBrowserlessHTTPProtocol(t *testing.T) {
 	}
 	cancelStream()
 	_ = streamResponse.Body.Close()
+
+	staleRequest := browserRequest(t, context.Background(), server.URL+"/patients?status=open", server.URL, map[string]any{
+		"csrf":               csrf,
+		"pageStreamId":       pageStreamID,
+		"pageStreamRevision": 0,
+	})
+	staleResponse, err := client.Do(staleRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = readResponse(t, staleResponse)
+	if staleResponse.StatusCode != http.StatusNoContent {
+		t.Fatalf("stale page stream status = %s, want 204 No Content", staleResponse.Status)
+	}
 
 	commandRequest := browserRequest(t, context.Background(), server.URL+"/commands?command=create-patient", server.URL, map[string]any{
 		"csrf":            csrf,
