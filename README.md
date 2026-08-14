@@ -20,7 +20,7 @@ A small patient-practice dashboard built with Go’s standard HTTP server, route
 
 ## Quick start
 
-Choose either workflow. Docker execution does not require Nix, Go, pnpm, `just`, or PostgreSQL on the host. Nix development does not require Docker in the Linux VM. Both workflows intentionally require `mkcert` and reuse the same `.certs/localhost*.pem` layout, so trust and direct TLS/HTTP2 behavior stay as close as possible.
+Choose either workflow. Docker execution does not require Nix, Go, pnpm, `just`, or PostgreSQL on the host. Nix development does not require Docker in the Linux VM. Both workflows intentionally require `mkcert` and reuse the same `.certs/localhost*.pem` layout, so direct TLS/HTTP2 behavior stays as close as possible. Each environment has its own mkcert CA; `scripts/certs.sh` replaces an existing leaf certificate when the current environment's CA did not issue it.
 
 ### Docker workflow on macOS without Nix
 
@@ -38,7 +38,7 @@ Then run:
 ./scripts/docker-up.sh
 ```
 
-The script runs `mkcert -install`, creates the shared localhost certificate if it is missing, builds the Go application in Docker, and starts the app and PostgreSQL. After the macOS trust prompt is accepted, Chrome and Safari should open <https://localhost:8443/patients> without a certificate warning. The certificate covers `localhost`, `127.0.0.1`, and `::1`.
+The script runs `mkcert -install`, creates the localhost certificate when it is missing or was issued by another environment's mkcert CA, builds the Go application in Docker, and starts the app and PostgreSQL. Run it from the macOS host—not from the Linux Nix shell—so the certificate is issued by the CA trusted by the host browser. After the macOS trust prompt is accepted, Chrome and Safari should open <https://localhost:8443/patients> without a certificate warning. The certificate covers `localhost`, `127.0.0.1`, and `::1`.
 
 Useful Docker-only commands:
 
@@ -55,7 +55,7 @@ The wrapper also selects the Docker infrastructure backend, ensures the configur
 docker compose up -d --wait postgres
 # scripts/docker-up.sh also creates DATABASE_NAME when it is not present.
 LOCAL_UID="$(id -u)" LOCAL_GID="$(id -g)" \
-  docker compose --profile app up -d --wait --build app
+  docker compose --profile app up -d --wait --build --force-recreate app
 ```
 
 Do not share the `.certs` directory or use this development certificate in production.

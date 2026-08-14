@@ -31,6 +31,7 @@
               just
               mkcert
               nssTools
+              openssl
               curl
               postgresql_18
               util-linux
