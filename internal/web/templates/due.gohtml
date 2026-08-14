@@ -15,8 +15,6 @@
     .summary-card strong { display: block; font-family: Georgia, serif; font-size: 2rem; font-weight: 500; }
     .summary-card span { color: var(--muted); font-size: .8rem; }
     .summary-card.alert strong { color: var(--coral); }
-    .flash { max-width: 76rem; margin: 0 auto 1rem; padding: .8rem 1rem; border-radius: .7rem; background: #dff5eb; color: var(--brand-dark); }
-    .flash.error { background: #fff0ec; color: #8b3b28; }
     .task-table { max-width: 76rem; margin: auto; overflow: hidden; border: 1px solid var(--line); border-radius: 1rem; background: white; box-shadow: var(--shadow); }
     .table-heading, .task-row { display: grid; grid-template-columns: minmax(14rem, 1.5fr) minmax(11rem, 1fr) 9rem 7rem 3rem; align-items: center; gap: 1rem; padding: 0 1.3rem; }
     .table-heading { min-height: 3rem; color: var(--muted); background: #f4f8f6; font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
@@ -59,9 +57,6 @@
       <a href="/tasks/due?window=30" {{if eq .Query.Days 30}}aria-current="true"{{end}}>30 days</a>
     </nav>
   </header>
-
-  <p class="flash" data-show="$_flash" data-text="$_flash"></p>
-  <p class="flash error" data-show="$_error" data-text="$_error"></p>
 
   <section class="summary" aria-label="Due task summary">
     <div class="summary-card alert"><strong>{{.OverdueCount}}</strong><span>Overdue tasks</span></div>

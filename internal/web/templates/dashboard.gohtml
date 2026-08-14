@@ -11,8 +11,6 @@
     .stat { min-width: 7.4rem; padding: .85rem 1rem; border: 1px solid var(--line); border-radius: .85rem; background: rgb(255 255 255 / 70%); }
     .stat strong { display: block; font-size: 1.25rem; }
     .stat span { color: var(--muted); font-size: .78rem; }
-    .flash { max-width: 92rem; margin: 0 auto 1rem; padding: .8rem 1rem; border-radius: .7rem; background: #dff5eb; color: var(--brand-dark); }
-    .flash.error { background: #fff0ec; color: #8b3b28; }
     .workspace { display: grid; grid-template-columns: minmax(18rem, 24rem) minmax(30rem, 1fr); min-height: 39rem; max-width: 92rem; margin: auto; overflow: hidden; border: 1px solid var(--line); border-radius: 1.1rem; background: var(--surface); box-shadow: var(--shadow); }
     .patients-pane { display: flex; min-width: 0; flex-direction: column; background: #f7faf8; border-right: 1px solid var(--line); }
     .pane-header { padding: 1.2rem; border-bottom: 1px solid var(--line); }
@@ -94,9 +92,6 @@
       <div class="stat"><strong>{{.DueTaskCount}}</strong><span>Due in 7 days</span></div>
     </div>
   </header>
-
-  <p class="flash" data-show="$_flash" data-text="$_flash"></p>
-  <p class="flash error" data-show="$_error" data-text="$_error"></p>
 
   <section class="workspace" aria-label="Patient and task workspace">
     <aside class="patients-pane">

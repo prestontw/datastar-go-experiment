@@ -189,9 +189,16 @@ test('persists independent task drafts per patient and clears a submitted draft'
   await page.getByLabel('Task', { exact: true }).fill(completedTitle)
   await page.getByLabel('Due date').fill('2026-08-20')
   await page.getByLabel('Priority').selectOption('important')
+  const workspaceTop = await page.locator('.workspace').evaluate((element) => (
+    Math.round(element.getBoundingClientRect().top)
+  ))
 
   await page.getByRole('button', { name: 'Add task' }).click()
 
+  await expect(page.getByRole('status')).toHaveText('Task created.')
+  await expect.poll(() => page.locator('.workspace').evaluate((element) => (
+    Math.round(element.getBoundingClientRect().top)
+  ))).toBe(workspaceTop)
   await expect(page.getByText(completedTitle, { exact: true })).toBeVisible()
   await page.waitForTimeout(250)
   expect(patientStreams).toEqual([

@@ -47,6 +47,9 @@
     .site-nav a { padding: .65rem .85rem; border-radius: .65rem; color: #d6e3df; text-decoration: none; font-size: .93rem; }
     .site-nav a[aria-current="page"] { color: white; background: rgb(255 255 255 / 12%); }
     .environment { color: #a9beb8; font-size: .75rem; text-transform: uppercase; letter-spacing: .12em; }
+    .notifications { position: fixed; right: max(1rem, 4vw); bottom: max(1rem, env(safe-area-inset-bottom)); z-index: 100; display: grid; width: min(28rem, calc(100vw - 2rem)); gap: .5rem; pointer-events: none; }
+    .notification { margin: 0; padding: .85rem 1rem; color: var(--brand-dark); border: 1px solid #b9dfd4; border-radius: .75rem; background: #dff5eb; box-shadow: 0 12px 35px rgb(23 50 45 / 16%); }
+    .notification.error { color: #8b3b28; border-color: #efc7bd; background: #fff0ec; }
     .noscript { margin: 2rem; padding: 1rem; border: 1px solid #e8c286; background: #fff8e8; }
     @media (max-width: 680px) {
       .site-header { padding: .75rem 1rem; flex-wrap: wrap; gap: .5rem; }
@@ -72,6 +75,10 @@
        data-on:patient-navigation__window="history.pushState({}, '', evt.detail); $patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_draftPatientId = ''; $_flash = ''; $_error = ''; $pageStreamRevision = $pageStreamRevision + 1"
        data-on:patient-search__window="history.replaceState({}, '', evt.detail); $patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_draftPatientId = ''; $_flash = ''; $_error = ''; $pageStreamRevision = $pageStreamRevision + 1"
        data-on:popstate__window="$patientName = ''; $patientDob = ''; $patientPronouns = ''; $patientCareTeam = ''; $taskTitle = ''; $taskDue = ''; $taskPriority = 'routine'; $_draftPatientId = ''; $_flash = ''; $_error = ''; $pageStreamRevision = $pageStreamRevision + 1"></div>
+  <div class="notifications" aria-label="Notifications">
+    <p class="notification" role="status" aria-live="polite" aria-atomic="true" data-show="$_flash" data-text="$_flash"></p>
+    <p class="notification error" role="alert" aria-live="assertive" aria-atomic="true" data-show="$_error" data-text="$_error"></p>
+  </div>
   <noscript><p class="noscript">This demonstration needs JavaScript to establish its Datastar update stream.</p></noscript>
   <main id="morph" aria-live="polite"></main>
 </body>

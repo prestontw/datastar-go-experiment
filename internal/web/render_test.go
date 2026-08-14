@@ -52,4 +52,7 @@ func TestShellReadsCSRFDoubleSubmitCookie(t *testing.T) {
 	if !strings.Contains(shell, "data-signals:page-stream-id") || !strings.Contains(shell, "$pageStreamRevision") {
 		t.Fatal("shell does not send server-verifiable page-stream identity")
 	}
+	if !strings.Contains(shell, `class="notifications"`) || !strings.Contains(shell, `position: fixed`) {
+		t.Fatal("shell does not render notifications outside page layout")
+	}
 }
