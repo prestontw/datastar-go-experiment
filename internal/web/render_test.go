@@ -55,4 +55,7 @@ func TestShellReadsCSRFDoubleSubmitCookie(t *testing.T) {
 	if !strings.Contains(shell, `class="notifications"`) || !strings.Contains(shell, `position: fixed`) {
 		t.Fatal("shell does not render notifications outside page layout")
 	}
+	if !strings.Contains(shell, `aria-label="Dismiss notification"`) || !strings.Contains(shell, `$_flash = ''`) {
+		t.Fatal("shell notifications cannot be dismissed")
+	}
 }

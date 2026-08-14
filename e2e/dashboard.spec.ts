@@ -78,8 +78,12 @@ test('an explicit patient choice cancels a pending search', async ({ page }) => 
   await expect(page.getByRole('heading', { name: 'Elias Brooks' })).toBeVisible()
 
   await page.getByRole('searchbox', { name: 'Search patients' }).fill('Noor')
-  await page.waitForTimeout(100)
-  await page.locator('a.patient-link', { hasText: 'Maya Chen' }).click()
+  const mayaLink = page.locator('a.patient-link', { hasText: 'Maya Chen' })
+  // Dispatch immediately rather than using Playwright's actionability wait: the
+  // behavior under test is choosing a patient inside the debounce window.
+  await mayaLink.dispatchEvent('mousedown', { button: 0 })
+  await mayaLink.dispatchEvent('mouseup', { button: 0 })
+  await mayaLink.dispatchEvent('click', { button: 0 })
 
   // Wait beyond the search debounce. Its old timer must not overwrite Maya.
   await page.waitForTimeout(350)
@@ -195,10 +199,13 @@ test('persists independent task drafts per patient and clears a submitted draft'
 
   await page.getByRole('button', { name: 'Add task' }).click()
 
-  await expect(page.getByRole('status')).toHaveText('Task created.')
+  const notification = page.getByRole('status')
+  await expect(notification).toContainText('Task created.')
   await expect.poll(() => page.locator('.workspace').evaluate((element) => (
     Math.round(element.getBoundingClientRect().top)
   ))).toBe(workspaceTop)
+  await page.getByRole('button', { name: 'Dismiss notification' }).click()
+  await expect(notification).toBeHidden()
   await expect(page.getByText(completedTitle, { exact: true })).toBeVisible()
   await page.waitForTimeout(250)
   expect(patientStreams).toEqual([

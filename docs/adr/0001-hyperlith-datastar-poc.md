@@ -117,7 +117,7 @@ Authentication, authorization, clinical audit logs, retention rules, secrets man
 
 ### 7. Use native scoped CSS and one Web Component example
 
-Each page’s content and `@scope` styles live in the same `.gohtml` file. This gives locality and boundaries without Tailwind versions, class translation, generated names, or a Node build step. Shared shell styles remain in the shell template. Success/error messages also live there in a fixed viewport notification layer outside `<main>`, so command feedback is announced without changing page geometry or being coupled to a full-main morph.
+Each page’s content and `@scope` styles live in the same `.gohtml` file. This gives locality and boundaries without Tailwind versions, class translation, generated names, or a Node build step. Shared shell styles remain in the shell template. Success/error messages also live there in a fixed viewport notification layer outside `<main>`, so command feedback is announced without changing page geometry or being coupled to a full-main morph. Each message provides a keyboard-accessible explicit dismissal control.
 
 `<patient-avatar>` is a standards-only custom element. Its DOM and Shadow DOM CSS are colocated in one JavaScript file. It uses no runtime package, is served from the Go binary, and is checked with TypeScript’s `allowJs`/`checkJs` mode. Server-rendered patient data remains in normal HTML; the component is progressive presentation, not client-side application state.
 
@@ -214,4 +214,4 @@ Create a superseding ADR if any of the following occurs: real authentication/PHI
 - **2026-08-13:** Composed the browserless client with a fresh migrated PostgreSQL database and a normalized golden transcript covering patient/task command-to-SSE persistence.
 - **2026-08-13:** Added revision-guarded PostgreSQL new-task drafts keyed by hashed session, tab, and patient; debounced/flushed browser saves, context-only hydration, atomic task/draft clearing, and cross-patient Playwright coverage.
 - **2026-08-13:** Investigated a wrong-patient stream after task submission. Removed duplicated `_pageUrl` route state, replaced implicit action cleanup with one explicitly aborted client controller, and added server-side document/revision ownership with stale-retry rejection. Regression coverage asserts the exact Noor → Elias → Noor stream sequence and no stream restart on submit.
-- **2026-08-13:** Moved command feedback from page flow into a fixed accessible shell notification layer; Playwright asserts task creation leaves workspace vertical position unchanged.
+- **2026-08-13:** Moved command feedback from page flow into a fixed accessible, dismissible shell notification layer; Playwright asserts task creation leaves workspace vertical position unchanged and dismissal hides the message.
