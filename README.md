@@ -10,8 +10,10 @@ Some of the things I was interested in trying out were:
 - I wanted the app to "really make you feel like SPA-der-Man" (I wanted it to feel like a single-page application). This meant limiting screen changes when changing between patients, and customizing links to open a new SSE stream instead of opening a new page and then a new SSE, in the style of [Inertia.js](https://inertiajs.com/). Since I was following the Hyperlith approach, opening a new page would show an empty shell until we got the new patient content, which ruined the SPA illusion.
 
   I also used the trick of navigating on mouse down rather than click to make the app feel even snappier.
+- Maintaining `view = f(state)`. When I was going through the [*Hypermedia Systems*](https://hypermedia.systems/) book, it felt tougher to debug the state of the application if I ended up in a wonky state after several actions: the "formula" was more like `view = f(state) + i_1(interaction, state) + i_2(interaction, state) + ... + i_n(interaction, state)`. Initially, I wanted to architect the frontend more like a reactive app based on signals, but I liked trying out the Hyperlith approach!
 - Persistent drafts: I wanted this app to feel like a local app or like a notebook after watching some of my doctors enter in information during an appointment. I didn't want operators to lose information.
-- Minimized external dependencies. I am leaning towards this in my main development, but I wanted to see how far I could push this. This led to implementing this in Go with its web-friendly standard library---I'm really happy with only two direct dependencies (Datastar and the postgres client library)!
+- Maintain focus and input elements across new HTML sent over SSE.
+- Minimal external dependencies. I am trying to prioritize this in my main development, but I wanted to see how far I could push this in this PoC. This decision led to implementing this PoC in Go with its web-friendly standard library---I'm really happy with only two direct dependencies (Datastar and the postgres client library)!
 - Colocated styles and content. I like Svelte's and Astro's approach to styling and wanted something that felt similar. Tailwind is a nice first approximation, but introduces an asset build step (which I'm not ready for yet!) and also isn't vanilla CSS, which could incur a cost later when updating versions.
 - Easy multi-agent developing. I went with one Postgres instance running with each agent/worktree having an individual logical database because I'm trying to do my development within a VM, which is a constrained environment, so I wanted to trade a little isolation for reduced resources.
 
@@ -20,6 +22,7 @@ Some of the things I was interested in trying out were:
 - Simple web-component for my own understanding as well.
 - UUIDv7's! When the agent bootstrapped Postgres, it used an older version that didn't support v7 out of the box!
 - Multiple levels of testing, from unit tests to curl-style integration tests to Playwright tests.
+  Test databases are created in the style of [*Zero to Production in Rust](https://80a8f3c0.lpalmieri.pages.dev/posts/2020-08-31-zero-to-production-3-5-html-forms-databases-integration-tests/#3-7-1-test-isolation).
 
 Overall, I'm really happy with and energized by how this project turned out. Programming in Go does not spark joy, but I am very pleased with the iteration speed and minimal external dependencies!
 
