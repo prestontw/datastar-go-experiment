@@ -26,6 +26,8 @@ Some of the things I was interested in trying out were:
 
 Overall, I'm really happy with and energized by how this project turned out. Programming in Go does not spark joy, but I am very pleased with the iteration speed and minimal external dependencies!
 
+https://github.com/user-attachments/assets/a514deb2-0698-4f47-8371-0d702d481770
+
 ---
 
 Below is what the agent spewed out.
