@@ -1,3 +1,35 @@
+# [Datastar](https://data-star.dev/) Proof of Concept
+
+After watching [*Put State in the Right Place*](https://www.youtube.com/watch?v=W7Ki3aXgmZU), I wanted to try playing around with Datastar.
+I had read a little bit about it on the Rust subreddit, on a blog post (<https://hamy.xyz/blog/2026-03_datastar-rust-todo>), and as an [alternative](https://htmx.org/essays/alternatives/#datastar) to [HTMX](https://htmx.org/) (though I was initially more interested in [`htmz`](https://leanrada.com/htmz/)).
+After checking out <https://www.youtube.com/watch?v=2ECucq-mTGg>, referenced in the *Software Should Work* talk, I wanted to hone in specifically on [`Hyperlith`](https://github.com/andersmurphy/hyperlith).
+I haven't gotten around to actually using Clojure, though, so instead I wanted to try building off of the [rational](https://github.com/andersmurphy/hyperlith#rational-more-like-a-collection-of-opinions) in my own proof of concept.
+
+I wanted something a little more advanced than the typical Todo demo, so I came up with a task list per "patient" (which is really multiple Todo lists on each other's shoulders in a trench coat).
+Some of the things I was interested in trying out were:
+- I wanted the app to "really make you feel like SPA-der-Man" (I wanted it to feel like a single-page application). This meant limiting screen changes when changing between patients, and customizing links to open a new SSE stream instead of opening a new page and then a new SSE, in the style of [Inertia.js](https://inertiajs.com/). Since I was following the Hyperlith approach, opening a new page would show an empty shell until we got the new patient content, which ruined the SPA illusion.
+
+  I also used the trick of navigating on mouse down rather than click to make the app feel even snappier.
+- Persistent drafts: I wanted this app to feel like a local app or like a notebook after watching some of my doctors enter in information during an appointment. I didn't want operators to lose information.
+- Minimized external dependencies. I am leaning towards this in my main development, but I wanted to see how far I could push this. This led to implementing this in Go with its web-friendly standard library---I'm really happy with only two direct dependencies (Datastar and the postgres client library)!
+- Colocated styles and content. I like Svelte's and Astro's approach to styling and wanted something that felt similar. Tailwind is a nice first approximation, but introduces an asset build step (which I'm not ready for yet!) and also isn't vanilla CSS, which could incur a cost later when updating versions.
+- Easy multi-agent developing. I went with one Postgres instance running with each agent/worktree having an individual logical database because I'm trying to do my development within a VM, which is a constrained environment, so I wanted to trade a little isolation for reduced resources.
+
+  This also had some effect on picking Nix for reproducible dev environments.
+- Local development over HTTPS and HTTP/2, which should help with production equivalency and local usage of SSE while developing.
+- Simple web-component for my own understanding as well.
+- UUIDv7's! When the agent bootstrapped Postgres, it used an older version that didn't support v7 out of the box!
+- Multiple levels of testing, from unit tests to curl-style integration tests to Playwright tests.
+
+Overall, I'm really happy with and energized by how this project turned out. Programming in Go does not spark joy, but I am very pleased with the iteration speed and minimal external dependencies!
+
+---
+
+Below is what the agent spewed out.
+It might be helpful in terms of more specific technical direction and details.
+
+---
+
 # Northstar patient dashboard
 
 A small patient-practice dashboard built with Go’s standard HTTP server, router, and templates, plus [Datastar](https://data-star.dev/) for realtime hypermedia updates.
