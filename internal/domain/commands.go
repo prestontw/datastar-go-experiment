@@ -30,9 +30,10 @@ type SaveTaskDraftInput struct {
 	Revision  int64
 }
 
-// PreparePatient is part of the functional core: all values and coeffects are
-// supplied by the caller, and the result only describes the desired write.
-func PreparePatient(input CreatePatientInput, id string, today time.Time) (NewPatient, error) {
+// PreparePatient is part of the functional core: the current date is supplied
+// by the caller, and the result describes attributes to persist. PostgreSQL
+// assigns the durable identity when the shell inserts the record.
+func PreparePatient(input CreatePatientInput, today time.Time) (NewPatient, error) {
 	name := strings.TrimSpace(input.Name)
 	if name == "" || len(name) > 120 {
 		return NewPatient{}, errors.Join(ErrInvalidCommand, errors.New("name must be between 1 and 120 characters"))
@@ -53,7 +54,6 @@ func PreparePatient(input CreatePatientInput, id string, today time.Time) (NewPa
 	}
 
 	return NewPatient{
-		ID:          id,
 		Name:        name,
 		DateOfBirth: dateOfBirth,
 		Pronouns:    pronouns,
@@ -95,9 +95,9 @@ func PrepareTaskDraft(input SaveTaskDraftInput) (TaskDraft, error) {
 	}, nil
 }
 
-// PrepareTask is pure for the same reason as PreparePatient. The shell owns ID
-// generation, time, database access, and effects.
-func PrepareTask(input CreateTaskInput, id string) (NewTask, error) {
+// PrepareTask is pure for the same reason as PreparePatient. PostgreSQL assigns
+// the task ID when the shell persists these validated attributes.
+func PrepareTask(input CreateTaskInput) (NewTask, error) {
 	title := strings.TrimSpace(input.Title)
 	if title == "" || len(title) > 180 {
 		return NewTask{}, errors.Join(ErrInvalidCommand, errors.New("task title must be between 1 and 180 characters"))
@@ -121,7 +121,6 @@ func PrepareTask(input CreateTaskInput, id string) (NewTask, error) {
 	}
 
 	return NewTask{
-		ID:        id,
 		PatientID: input.PatientID,
 		Title:     title,
 		DueDate:   dueDate,

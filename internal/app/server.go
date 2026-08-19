@@ -29,13 +29,12 @@ const (
 
 type Repository interface {
 	Ping(context.Context) error
-	NewID(context.Context) (string, error)
 	Dashboard(context.Context, domain.DashboardQuery) (domain.DashboardSnapshot, error)
 	Due(context.Context, domain.DueQuery) (domain.DueSnapshot, error)
-	CreatePatient(context.Context, domain.NewPatient) error
+	CreatePatient(context.Context, domain.NewPatient) (string, error)
 	TaskDraft(context.Context, []byte, string, string) (domain.TaskDraft, error)
 	SaveTaskDraft(context.Context, []byte, string, domain.TaskDraft) error
-	CreateTask(context.Context, domain.NewTask, []byte, string, int64) error
+	CreateTask(context.Context, domain.NewTask, []byte, string, int64) (string, error)
 	ToggleTask(context.Context, string) error
 }
 
@@ -275,22 +274,17 @@ func (s *Server) command(w http.ResponseWriter, r *http.Request) {
 	command := r.URL.Query().Get("command")
 	switch command {
 	case "create-patient":
-		id, err := s.repository.NewID(r.Context())
-		if err != nil {
-			s.commandError(w, r, err)
-			return
-		}
 		patient, err := domain.PreparePatient(domain.CreatePatientInput{
 			Name:        signals.PatientName,
 			DateOfBirth: signals.PatientDOB,
 			Pronouns:    signals.PatientPronouns,
 			CareTeam:    signals.PatientCareTeam,
-		}, id, s.today())
+		}, s.today())
 		if err != nil {
 			s.validationError(w, r, err)
 			return
 		}
-		if err := s.repository.CreatePatient(r.Context(), patient); err != nil {
+		if _, err := s.repository.CreatePatient(r.Context(), patient); err != nil {
 			s.commandError(w, r, err)
 			return
 		}
@@ -328,23 +322,18 @@ func (s *Server) command(w http.ResponseWriter, r *http.Request) {
 			s.validationError(w, r, errors.Join(domain.ErrInvalidCommand, errors.New("draft identity is invalid")))
 			return
 		}
-		id, err := s.repository.NewID(r.Context())
-		if err != nil {
-			s.commandError(w, r, err)
-			return
-		}
 		task, err := domain.PrepareTask(domain.CreateTaskInput{
 			PatientID: r.URL.Query().Get("patient"),
 			Title:     signals.TaskTitle,
 			DueDate:   signals.TaskDue,
 			Priority:  signals.TaskPriority,
-		}, id)
+		})
 		if err != nil {
 			s.validationError(w, r, err)
 			return
 		}
 		clearRevision := signals.TaskDraftRevision + 1
-		if err := s.repository.CreateTask(
+		if _, err := s.repository.CreateTask(
 			r.Context(), task, draftOwner(sid), signals.TabID, clearRevision,
 		); err != nil {
 			s.commandError(w, r, err)

@@ -48,30 +48,21 @@ func TestMigratedStoreSupportsPatientTaskLifecycle(t *testing.T) {
 		t.Fatalf("selected patient after filtering = %#v, want nil", snapshot.SelectedPatient)
 	}
 
-	patientID, err := store.NewID(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(patientID) != 36 || patientID[14] != '7' {
-		t.Fatalf("NewID() = %q, want UUIDv7", patientID)
-	}
 	patient := domain.NewPatient{
-		ID:          patientID,
 		Name:        "Integration Patient",
 		DateOfBirth: time.Date(1990, 6, 15, 0, 0, 0, 0, time.UTC),
 		Pronouns:    "they/them",
 		CareTeam:    "Integration Clinician",
 	}
-	if err := store.CreatePatient(ctx, patient); err != nil {
-		t.Fatal(err)
-	}
-	taskID, err := store.NewID(ctx)
+	patientID, err := store.CreatePatient(ctx, patient)
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(patientID) != 36 || patientID[14] != '7' {
+		t.Fatalf("created patient ID = %q, want UUIDv7", patientID)
+	}
 	task := domain.NewTask{
-		ID:        taskID,
-		PatientID: patient.ID,
+		PatientID: patientID,
 		Title:     "Review integration result",
 		DueDate:   time.Now().UTC(),
 		Priority:  "important",
@@ -79,7 +70,7 @@ func TestMigratedStoreSupportsPatientTaskLifecycle(t *testing.T) {
 	ownerHash := []byte("integration-test-draft-owner-hash")
 	tabID := "019fbd32-0700-7000-8000-000000000001"
 	draft := domain.TaskDraft{
-		PatientID: patient.ID,
+		PatientID: patientID,
 		Title:     "Review integration",
 		DueDate:   "2026-08-20",
 		Priority:  "important",
@@ -88,17 +79,18 @@ func TestMigratedStoreSupportsPatientTaskLifecycle(t *testing.T) {
 	if err := store.SaveTaskDraft(ctx, ownerHash, tabID, draft); err != nil {
 		t.Fatal(err)
 	}
-	persistedDraft, err := store.TaskDraft(ctx, ownerHash, tabID, patient.ID)
+	persistedDraft, err := store.TaskDraft(ctx, ownerHash, tabID, patientID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if persistedDraft != draft {
 		t.Fatalf("persisted draft = %#v, want %#v", persistedDraft, draft)
 	}
-	if err := store.CreateTask(ctx, task, ownerHash, tabID, 2); err != nil {
+	taskID, err := store.CreateTask(ctx, task, ownerHash, tabID, 2)
+	if err != nil {
 		t.Fatal(err)
 	}
-	clearedDraft, err := store.TaskDraft(ctx, ownerHash, tabID, patient.ID)
+	clearedDraft, err := store.TaskDraft(ctx, ownerHash, tabID, patientID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +101,7 @@ func TestMigratedStoreSupportsPatientTaskLifecycle(t *testing.T) {
 	if err := store.SaveTaskDraft(ctx, ownerHash, tabID, draft); err != nil {
 		t.Fatal(err)
 	}
-	clearedDraft, err = store.TaskDraft(ctx, ownerHash, tabID, patient.ID)
+	clearedDraft, err = store.TaskDraft(ctx, ownerHash, tabID, patientID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,21 +109,21 @@ func TestMigratedStoreSupportsPatientTaskLifecycle(t *testing.T) {
 		t.Fatalf("stale autosave resurrected draft: %#v", clearedDraft)
 	}
 
-	snapshot, err = store.Dashboard(ctx, domain.DashboardQuery{PatientID: patient.ID, Status: "open"})
+	snapshot, err = store.Dashboard(ctx, domain.DashboardQuery{PatientID: patientID, Status: "open"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if snapshot.SelectedPatient == nil || snapshot.SelectedPatient.ID != patient.ID {
+	if snapshot.SelectedPatient == nil || snapshot.SelectedPatient.ID != patientID {
 		t.Fatalf("selected patient = %#v", snapshot.SelectedPatient)
 	}
 	if len(snapshot.Tasks) != 1 || snapshot.Tasks[0].Title != task.Title {
 		t.Fatalf("open tasks = %#v", snapshot.Tasks)
 	}
 
-	if err := store.ToggleTask(ctx, task.ID); err != nil {
+	if err := store.ToggleTask(ctx, taskID); err != nil {
 		t.Fatal(err)
 	}
-	snapshot, err = store.Dashboard(ctx, domain.DashboardQuery{PatientID: patient.ID, Status: "done"})
+	snapshot, err = store.Dashboard(ctx, domain.DashboardQuery{PatientID: patientID, Status: "done"})
 	if err != nil {
 		t.Fatal(err)
 	}

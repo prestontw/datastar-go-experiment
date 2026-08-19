@@ -52,7 +52,6 @@ type DueSnapshot struct {
 }
 
 type NewPatient struct {
-	ID          string
 	Name        string
 	DateOfBirth time.Time
 	Pronouns    string
@@ -60,7 +59,6 @@ type NewPatient struct {
 }
 
 type NewTask struct {
-	ID        string
 	PatientID string
 	Title     string
 	DueDate   time.Time

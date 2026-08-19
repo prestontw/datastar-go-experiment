@@ -37,17 +37,6 @@ func (s *Store) Close() error { return s.db.Close() }
 
 func (s *Store) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
 
-// NewID asks PostgreSQL 18 for a time-ordered UUIDv7. ID generation is an
-// explicit coeffect; inserts still provide IDs so command preparation remains
-// deterministic and independently testable.
-func (s *Store) NewID(ctx context.Context) (string, error) {
-	var id string
-	if err := s.db.QueryRowContext(ctx, "SELECT uuidv7()::text").Scan(&id); err != nil {
-		return "", fmt.Errorf("generate UUIDv7: %w", err)
-	}
-	return id, nil
-}
-
 func (s *Store) Dashboard(ctx context.Context, query domain.DashboardQuery) (domain.DashboardSnapshot, error) {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	if err != nil {
@@ -231,15 +220,18 @@ func (s *Store) Due(ctx context.Context, query domain.DueQuery) (domain.DueSnaps
 	}, nil
 }
 
-func (s *Store) CreatePatient(ctx context.Context, patient domain.NewPatient) error {
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO patients (id, name, date_of_birth, pronouns, care_team)
-		VALUES ($1, $2, $3, $4, $5)`,
-		patient.ID, patient.Name, patient.DateOfBirth, patient.Pronouns, patient.CareTeam)
+func (s *Store) CreatePatient(ctx context.Context, patient domain.NewPatient) (string, error) {
+	var id string
+	err := s.db.QueryRowContext(ctx, `
+		INSERT INTO patients (name, date_of_birth, pronouns, care_team)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id`,
+		patient.Name, patient.DateOfBirth, patient.Pronouns, patient.CareTeam,
+	).Scan(&id)
 	if err != nil {
-		return fmt.Errorf("insert patient: %w", err)
+		return "", fmt.Errorf("insert patient: %w", err)
 	}
-	return nil
+	return id, nil
 }
 
 func (s *Store) TaskDraft(ctx context.Context, ownerHash []byte, tabID, patientID string) (domain.TaskDraft, error) {
@@ -282,18 +274,21 @@ func (s *Store) SaveTaskDraft(ctx context.Context, ownerHash []byte, tabID strin
 // CreateTask atomically inserts the task and advances its draft to an empty
 // tombstone. The revision guard prevents an older in-flight autosave from
 // resurrecting text after a successful submission.
-func (s *Store) CreateTask(ctx context.Context, task domain.NewTask, ownerHash []byte, tabID string, clearRevision int64) error {
+func (s *Store) CreateTask(ctx context.Context, task domain.NewTask, ownerHash []byte, tabID string, clearRevision int64) (string, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin create task: %w", err)
+		return "", fmt.Errorf("begin create task: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO patient_tasks (id, patient_id, title, due_date, priority)
-		VALUES ($1, $2, $3, $4, $5)`,
-		task.ID, task.PatientID, task.Title, task.DueDate, task.Priority); err != nil {
-		return fmt.Errorf("insert task: %w", err)
+	var id string
+	if err := tx.QueryRowContext(ctx, `
+		INSERT INTO patient_tasks (patient_id, title, due_date, priority)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id`,
+		task.PatientID, task.Title, task.DueDate, task.Priority,
+	).Scan(&id); err != nil {
+		return "", fmt.Errorf("insert task: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO task_drafts (
@@ -304,12 +299,12 @@ func (s *Store) CreateTask(ctx context.Context, task domain.NewTask, ownerHash [
 			revision = GREATEST(task_drafts.revision, EXCLUDED.revision),
 			updated_at = now()`,
 		ownerHash, tabID, task.PatientID, clearRevision); err != nil {
-		return fmt.Errorf("clear task draft: %w", err)
+		return "", fmt.Errorf("clear task draft: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit create task: %w", err)
+		return "", fmt.Errorf("commit create task: %w", err)
 	}
-	return nil
+	return id, nil
 }
 
 func (s *Store) ToggleTask(ctx context.Context, taskID string) error {

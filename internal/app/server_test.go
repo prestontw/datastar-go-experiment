@@ -23,18 +23,15 @@ type fakeRepository struct {
 }
 
 func (f *fakeRepository) Ping(context.Context) error { return nil }
-func (f *fakeRepository) NewID(context.Context) (string, error) {
-	return "019fbd32-0700-7000-8000-000000000001", nil
-}
 func (f *fakeRepository) Dashboard(context.Context, domain.DashboardQuery) (domain.DashboardSnapshot, error) {
 	return domain.DashboardSnapshot{}, nil
 }
 func (f *fakeRepository) Due(context.Context, domain.DueQuery) (domain.DueSnapshot, error) {
 	return domain.DueSnapshot{}, nil
 }
-func (f *fakeRepository) CreatePatient(_ context.Context, patient domain.NewPatient) error {
+func (f *fakeRepository) CreatePatient(_ context.Context, patient domain.NewPatient) (string, error) {
 	f.createdPatient = patient
-	return nil
+	return "019fbd32-0700-7000-8000-000000000001", nil
 }
 func (f *fakeRepository) TaskDraft(context.Context, []byte, string, string) (domain.TaskDraft, error) {
 	return f.taskDraft, nil
@@ -43,10 +40,10 @@ func (f *fakeRepository) SaveTaskDraft(_ context.Context, _ []byte, _ string, dr
 	f.taskDraft = draft
 	return nil
 }
-func (f *fakeRepository) CreateTask(_ context.Context, task domain.NewTask, _ []byte, _ string, revision int64) error {
+func (f *fakeRepository) CreateTask(_ context.Context, task domain.NewTask, _ []byte, _ string, revision int64) (string, error) {
 	f.createdTask = task
 	f.taskDraft = domain.TaskDraft{PatientID: task.PatientID, Priority: "routine", Revision: revision}
-	return nil
+	return "019fbd32-0700-7000-8000-000000000002", nil
 }
 func (f *fakeRepository) ToggleTask(context.Context, string) error { return nil }
 

@@ -13,7 +13,7 @@ func TestPreparePatient(t *testing.T) {
 		DateOfBirth: "1991-02-03",
 		Pronouns:    " they/them ",
 		CareTeam:    " Dr. Rivera ",
-	}, "patient-id", today)
+	}, today)
 	if err != nil {
 		t.Fatalf("PreparePatient() error = %v", err)
 	}
@@ -23,7 +23,7 @@ func TestPreparePatient(t *testing.T) {
 }
 
 func TestPreparePatientRejectsFutureBirthDate(t *testing.T) {
-	_, err := PreparePatient(CreatePatientInput{Name: "Avery", DateOfBirth: "2027-01-01"}, "patient-id", time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC))
+	_, err := PreparePatient(CreatePatientInput{Name: "Avery", DateOfBirth: "2027-01-01"}, time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC))
 	if !errors.Is(err, ErrInvalidCommand) {
 		t.Fatalf("PreparePatient() error = %v, want ErrInvalidCommand", err)
 	}
@@ -44,7 +44,7 @@ func TestPrepareTaskDraftAllowsIncompleteInput(t *testing.T) {
 }
 
 func TestPrepareTaskDefaultsPriority(t *testing.T) {
-	task, err := PrepareTask(CreateTaskInput{PatientID: "patient-id", Title: " Call patient ", DueDate: "2026-08-12"}, "task-id")
+	task, err := PrepareTask(CreateTaskInput{PatientID: "patient-id", Title: " Call patient ", DueDate: "2026-08-12"})
 	if err != nil {
 		t.Fatalf("PrepareTask() error = %v", err)
 	}
